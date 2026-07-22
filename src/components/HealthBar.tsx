@@ -4,16 +4,18 @@ import { MAX_HEALTH } from '../hooks/useGame'
 
 interface HealthBarProps {
   health: number
+  /** Mode tertentu punya nyawa maksimum berbeda, mis. Perfect Mode hanya 1 */
+  maxHealth?: number
 }
 
-export function HealthBar({ health }: HealthBarProps) {
+export function HealthBar({ health, maxHealth = MAX_HEALTH }: HealthBarProps) {
   return (
     <div
       className="flex items-center gap-1"
       role="img"
-      aria-label={`Nyawa tersisa ${health} dari ${MAX_HEALTH}`}
+      aria-label={`Nyawa tersisa ${health} dari ${maxHealth}`}
     >
-      {Array.from({ length: MAX_HEALTH }, (_, index) => {
+      {Array.from({ length: maxHealth }, (_, index) => {
         const isAlive = index < health
         return (
           <motion.span

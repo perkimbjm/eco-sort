@@ -39,6 +39,18 @@ export function getUnlockedItems(xp: number): RangerItem[] {
   return RANGER_ITEMS.filter((item) => item.unlockRangerLevel <= level)
 }
 
+/**
+ * Item yang tampil pada karakter. Selama pemain belum memilih sendiri,
+ * semua item yang terbuka ditampilkan agar hadiahnya langsung terasa;
+ * begitu ia mengatur perlengkapan, pilihannya yang menang.
+ */
+export function getDisplayedItems(profile: Profile): RangerItem[] {
+  if (profile.equipped.length > 0) {
+    return RANGER_ITEMS.filter((item) => profile.equipped.includes(item.id))
+  }
+  return getUnlockedItems(profile.xp)
+}
+
 function emptyCategoryStats(): Record<
   TrashCategory,
   { correct: number; wrong: number }
@@ -91,7 +103,9 @@ export function createDefaultProfile(): Profile {
  * disimpulkan dari badge yang sudah diraih dan riwayat papan skor.
  */
 function inferHighestLevel(parsed: Partial<Profile>): number {
-  const badges = parsed.badges ?? loadBadges()
+  // Gabungkan badge di profil dengan catatan badge tersendiri — keduanya
+  // bisa tertinggal satu sama lain pada profil lama.
+  const badges = [...new Set([...(parsed.badges ?? []), ...loadBadges()])]
   const fromBadges = badges.includes('eco-legend')
     ? 8
     : badges.includes('city-savior')

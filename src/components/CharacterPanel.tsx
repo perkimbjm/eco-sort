@@ -3,6 +3,7 @@ import { Check, Lock } from 'lucide-react'
 import type { Profile } from '../types/game'
 import {
   RANGER_ITEMS,
+  getDisplayedItems,
   getRangerLevel,
   getUnlockedItems,
 } from '../utils/profile'
@@ -22,9 +23,8 @@ export function CharacterPanel({
 }: CharacterPanelProps) {
   const rangerLevel = getRangerLevel(profile.xp)
   const unlocked = getUnlockedItems(profile.xp)
-  const equippedItems = RANGER_ITEMS.filter((item) =>
-    profile.equipped.includes(item.id),
-  )
+  // Pratinjau mengikuti aturan tampilan yang sama dengan beranda & permainan
+  const equippedItems = getDisplayedItems(profile)
   const activeBuddy = COMPANIONS.find(
     (companion) => companion.id === profile.activeCompanion,
   )

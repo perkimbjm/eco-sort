@@ -19,6 +19,29 @@ import { createInitialState, gameReducer } from '../hooks/gameReducer'
 import { TRASH_ITEMS, LEVELS } from '../data/trashData'
 import type { Profile, TrashItem } from '../types/game'
 
+// Vitest berjalan di Node tanpa DOM — sediakan localStorage seadanya
+// agar jalur loadProfile() yang asli tetap bisa diuji.
+function installLocalStorageStub(): void {
+  const store = new Map<string, string>()
+  const stub = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => void store.set(key, value),
+    removeItem: (key: string) => void store.delete(key),
+    clear: () => store.clear(),
+    key: (index: number) => [...store.keys()][index] ?? null,
+    get length() {
+      return store.size
+    },
+  }
+  Object.defineProperty(globalThis, 'localStorage', {
+    value: stub,
+    configurable: true,
+    writable: true,
+  })
+}
+
+installLocalStorageStub()
+
 const plastik: TrashItem = {
   id: 'botol-plastik',
   name: 'Botol Plastik',

@@ -15,7 +15,7 @@ import {
 } from '../data/endgame'
 import { playSound } from '../utils/sound'
 import { selectMusicTrack } from '../utils/music'
-import { getUnlockedItems } from '../utils/profile'
+import { getDisplayedItems } from '../utils/profile'
 import { calculateRank } from '../utils/ranking'
 import { GameHeader } from '../components/GameHeader'
 import { ScoreBoard } from '../components/ScoreBoard'
@@ -79,7 +79,7 @@ export function Game({
   const percent = Math.min(100, Math.round((state.cleanCity / levelTarget) * 100))
   const stage = getCityStage(percent)
   const isMuted = profile.isMuted
-  const unlockedItems = getUnlockedItems(profile.xp)
+  const unlockedItems = getDisplayedItems(profile)
   const isFever = isFeverActive(state.combo)
   const isDeciding = state.bossPhase === 'decision' && state.status === 'playing'
   // PHASE 27 — adegan penutup tampil setelah Raja Sampah dikalahkan
@@ -317,7 +317,10 @@ export function Game({
             level={state.level}
             combo={state.combo}
           />
-          <HealthBar health={state.health} />
+          <HealthBar
+            health={state.health}
+            maxHealth={masteryMode === 'perfect' ? 1 : undefined}
+          />
         </div>
 
         {levelConfig.mode === 'boss' && state.bossPhase ? (

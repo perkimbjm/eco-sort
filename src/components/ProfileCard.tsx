@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { Pencil } from 'lucide-react'
 import type { Profile } from '../types/game'
 import {
+  getDisplayedItems,
   getRangerLevel,
-  getUnlockedItems,
   getXpForLevel,
 } from '../utils/profile'
 
@@ -26,7 +26,7 @@ export function ProfileCard({ profile, onChangeName }: ProfileCardProps) {
       ((profile.xp - currentFloor) / (nextTarget - currentFloor)) * 100,
     ),
   )
-  const unlockedItems = getUnlockedItems(profile.xp)
+  const unlockedItems = getDisplayedItems(profile)
 
   const commitName = () => {
     onChangeName(draftName)

@@ -47,6 +47,23 @@ Dua level pamungkas dengan tensi tinggi:
 - ✨ **Rare Trash** — Golden Bottle muncul sesekali, +1000 poin
 - 🏅 **Final Ranking** — peringkat S/A/B/C dari skor, combo, akurasi, dan ketepatan waktu
 
+## Mode Petualangan (Phase 21–30)
+
+- 🗺️ **Peta Eco World** — 4 area (Kota Ceria → Sungai Bersih → Kawasan Industri →
+  TPA Misterius) dengan cerita pembuka/penutup, terbuka bertahap mengikuti progres
+- 🃏 **Eco Collection** — 32 kartu, satu per jenis sampah, masing-masing berisi fakta
+  edukasi dan tingkat kelangkaan. Terbuka otomatis saat sampahnya dipilah benar
+- 🦸 **Kustomisasi Eco Ranger** — Eco Hat (Lv5), Rescue Helmet (Lv8), Green Suit (Lv10),
+  City Guardian Badge (Lv15); item yang dipakai tampil pada karakter
+- 🐾 **Eco Buddy** — Teco Turtle (bonus organik), Bira Bird (bonus skor),
+  Cico Cat (perisai combo). Terbuka lewat koleksi kartu dan naik level sendiri
+- ✨ **Rahasia** — 5 pencapaian tersembunyi; sebelum ditemukan hanya petunjuk samar
+  yang terlihat
+- 🎬 **Ending** — adegan penutup bertahap setelah Raja Sampah dikalahkan
+- ⚡ **Mastery Mode** — Speed (60 detik), Endless (makin cepat tiap 10 sampah),
+  Perfect (satu nyawa). Terbuka setelah menamatkan Level 7, rekornya dicatat terpisah
+- 🏆 **Ranking tiga kategori** — skor tertinggi, combo terbaik, dan kota terbersih
+
 ## Fitur Engagement (Post-MVP)
 
 - **Game juice**: teks reward melayang (`✨ PERFECT!`), partikel, confetti, screen shake, edukasi singkat saat salah
@@ -90,8 +107,11 @@ src/
 │                 # LeaderboardPanel, StatsPanel,
 │                 # TimerBar, TrashQueue, BossPanel, EventBanner,
 │                 # FeverOverlay, DecisionPanel, RankResultModal
+│                 # WorldMap, CollectionPanel, CharacterPanel,
+│                 # SecretsPanel, MasteryPanel, EndingScene
 ├── pages/        # Home, Game
-├── data/         # trashData, achievements, cityStages, missions, endgame
+├── data/         # trashData, achievements, cityStages, missions, endgame,
+│                 # worlds, collection, companions, secrets, mastery
 ├── hooks/        # gameReducer (logika murni), useGame (efek & timer),
 │                 # useProfile, useBackgroundMusic, useToasts + test
 ├── types/        # game.ts (semua interface)
