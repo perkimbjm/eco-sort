@@ -12,7 +12,7 @@ body {
   background-color: #d1fae5;
 }
 
-/* Latar kota hijau: langit, perbukitan, dan siluet gedung */
+/* Latar kota: berevolusi mengikuti stage Clean City (PHASE 13) */
 .city-bg {
   background:
     linear-gradient(
@@ -24,6 +24,7 @@ body {
     );
   position: relative;
   overflow: hidden;
+  transition: background-color 600ms ease;
 }
 
 .city-bg::before {
@@ -39,6 +40,68 @@ body {
   opacity: 0.18;
   pointer-events: none;
   z-index: 0;
+}
+
+/* Stage 0 — Kota Tercemar: langit kelabu, pabrik berasap */
+.city-bg[data-stage='0'] {
+  background: linear-gradient(
+    to bottom,
+    #cbd5e1 0%,
+    #d6d3d1 45%,
+    #d1fae5 80%,
+    #a7f3d0 100%
+  );
+}
+.city-bg[data-stage='0']::before {
+  content: '🏭💨🗑️🏚️💨🏭🗑️🏚️💨🏭';
+  opacity: 0.22;
+}
+
+/* Stage 1 — Mulai Bersih */
+.city-bg[data-stage='1'] {
+  background: linear-gradient(
+    to bottom,
+    #e0f2fe 0%,
+    #ecfccb 50%,
+    #d1fae5 100%
+  );
+}
+.city-bg[data-stage='1']::before {
+  content: '🏢🌱🏠🗑️🏬🌱🏘️🌱🏢🏭';
+  opacity: 0.2;
+}
+
+/* Stage 2 — Kota Hijau */
+.city-bg[data-stage='2']::before {
+  content: '🏙️🌳🏢🌲🏠🌳🏬🌲🏘️🌳';
+}
+
+/* Stage 3 — Eco City */
+.city-bg[data-stage='3'] {
+  background: linear-gradient(
+    to bottom,
+    #7dd3fc 0%,
+    #bbf7d0 55%,
+    #86efac 100%
+  );
+}
+.city-bg[data-stage='3']::before {
+  content: '🌳🏙️💚🌻🏢🌳🦋🌲🏘️🌷';
+  opacity: 0.24;
+}
+
+/* Stage 4 — Perfect Environment */
+.city-bg[data-stage='4'] {
+  background: linear-gradient(
+    to bottom,
+    #38bdf8 0%,
+    #86efac 55%,
+    #4ade80 100%
+  );
+}
+.city-bg[data-stage='4']::before {
+  content: '🌈🌳🏙️✨🌻🦋💚🌲🌷✨';
+  opacity: 0.3;
 }
 
 .city-bg > * {

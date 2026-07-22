@@ -1,7 +1,11 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowRight, Home, RotateCcw, Trophy } from 'lucide-react'
+import { ArrowRight, Home, RotateCcw, Share2, Trophy } from 'lucide-react'
 import type { GameStatus } from '../types/game'
 import { BADGES } from '../data/trashData'
+import { shareResult } from '../utils/share'
+
+const CONFETTI = ['🎉', '✨', '🎊', '⭐', '💚', '🌟', '🍃', '🎈', '♻️', '🌈']
 
 interface LevelCompleteModalProps {
   status: GameStatus
@@ -25,6 +29,8 @@ export function LevelCompleteModal({
   onRestart,
   onExit,
 }: LevelCompleteModalProps) {
+  const [shareLabel, setShareLabel] = useState('Bagikan Hasil')
+
   if (status === 'playing') {
     return null
   }
@@ -32,6 +38,17 @@ export function LevelCompleteModal({
   const newBadge = BADGES.find((badge) => badge.unlockLevel === level)
   const isGameOver = status === 'gameOver'
   const isWon = status === 'won'
+
+  const handleShare = async () => {
+    const outcome = await shareResult(score, isWon)
+    setShareLabel(
+      outcome === 'copied'
+        ? 'Tersalin ke clipboard! ✅'
+        : outcome === 'failed'
+          ? 'Gagal membagikan'
+          : 'Dibagikan! ✅',
+    )
+  }
 
   return (
     <motion.div
@@ -44,6 +61,32 @@ export function LevelCompleteModal({
         isGameOver ? 'Permainan berakhir' : isWon ? 'Kamu menang' : 'Level selesai'
       }
     >
+      {/* Confetti sederhana saat menang / naik level */}
+      {!isGameOver &&
+        CONFETTI.map((piece, index) => (
+          <motion.span
+            key={index}
+            initial={{ y: -60, x: 0, opacity: 1, rotate: 0 }}
+            animate={{
+              y: '105vh',
+              x: (index - 4.5) * 24,
+              rotate: (index % 2 === 0 ? 1 : -1) * 360,
+              opacity: [1, 1, 0.8],
+            }}
+            transition={{
+              duration: 2.6 + (index % 4) * 0.5,
+              delay: index * 0.12,
+              repeat: Infinity,
+              ease: 'linear',
+            }}
+            className="pointer-events-none fixed top-0 text-2xl"
+            style={{ left: `${6 + index * 9.5}%` }}
+            aria-hidden="true"
+          >
+            {piece}
+          </motion.span>
+        ))}
+
       <motion.div
         initial={{ scale: 0.7, y: 40 }}
         animate={{ scale: 1, y: 0 }}
@@ -117,6 +160,14 @@ export function LevelCompleteModal({
               <ArrowRight className="h-5 w-5" aria-hidden="true" />
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => void handleShare()}
+            className={`${buttonBase} bg-sky-100 border-sky-300 text-sky-800 hover:bg-sky-50`}
+          >
+            <Share2 className="h-5 w-5" aria-hidden="true" />
+            {shareLabel}
+          </button>
           <button
             type="button"
             onClick={onRestart}

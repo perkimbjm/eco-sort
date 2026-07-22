@@ -3,6 +3,7 @@ import {
   CLEAN_PER_CORRECT,
   createInitialState,
   gameReducer,
+  getComboBonus,
   getLevelTarget,
   MAX_HEALTH,
   pickRandomTrash,
@@ -110,16 +111,27 @@ describe('aturan skor', () => {
     expect(next.score).toBe(0)
   })
 
-  test('skenario: jawaban benar 5 kali berturut-turut', () => {
+  test('skenario: jawaban benar 5 kali berturut-turut (dengan bonus combo)', () => {
     let state = freshState()
     for (let i = 0; i < 5; i++) {
       state = answerCorrectThenNext(state)
     }
-    expect(state.score).toBe(SCORE_CORRECT * 5)
+    // 5x100 + bonus combo 3 (100) + bonus combo 5 (500)
+    expect(state.score).toBe(SCORE_CORRECT * 5 + 100 + 500)
     expect(state.combo).toBe(5)
     expect(state.bestCombo).toBe(5)
     expect(state.cleanCity).toBe(CLEAN_PER_CORRECT * 5)
     expect(state.status).toBe('playing')
+  })
+
+  test('bonus combo sesuai tabel reward', () => {
+    expect(getComboBonus(1)).toBe(0)
+    expect(getComboBonus(2)).toBe(0)
+    expect(getComboBonus(3)).toBe(100)
+    expect(getComboBonus(4)).toBe(0)
+    expect(getComboBonus(5)).toBe(500)
+    expect(getComboBonus(10)).toBe(1000)
+    expect(getComboBonus(15)).toBe(500)
   })
 
   test('input diabaikan saat feedback masih tampil', () => {

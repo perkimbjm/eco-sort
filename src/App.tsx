@@ -2,15 +2,18 @@ import { useState } from 'react'
 import { Home } from './pages/Home'
 import { Game } from './pages/Game'
 
-type Page = 'home' | 'game'
+type View = { page: 'home' } | { page: 'game'; shouldResume: boolean }
 
 function App() {
-  const [page, setPage] = useState<Page>('home')
+  const [view, setView] = useState<View>({ page: 'home' })
 
-  return page === 'home' ? (
-    <Home onStart={() => setPage('game')} />
+  return view.page === 'home' ? (
+    <Home onStart={(shouldResume) => setView({ page: 'game', shouldResume })} />
   ) : (
-    <Game onExit={() => setPage('home')} />
+    <Game
+      shouldResume={view.shouldResume}
+      onExit={() => setView({ page: 'home' })}
+    />
   )
 }
 

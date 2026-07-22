@@ -1,21 +1,38 @@
 import { useCallback, useEffect, useReducer } from 'react'
 import type { GameState, TrashCategory, TrashItem } from '../types/game'
-import { getLevelConfig, getTrashByCategories, LEVELS } from '../data/trashData'
-import { loadBadges, saveBadges, loadHighScore, saveHighScore } from '../utils/storage'
-import { BADGES } from '../data/trashData'
+import { getLevelConfig, getTrashByCategories, LEVELS, BADGES } from '../data/trashData'
+import {
+  loadBadges,
+  saveBadges,
+  loadHighScore,
+  saveHighScore,
+} from '../utils/storage'
+import { SESSION_STORAGE_KEY } from '../utils/profile'
 
 export const MAX_HEALTH = 3
 export const SCORE_CORRECT = 100
 export const SCORE_WRONG_PENALTY = 20
 export const CLEAN_PER_CORRECT = 5
-const NEXT_TRASH_DELAY_MS = 700
+const CORRECT_NEXT_DELAY_MS = 700
+// Jeda lebih lama saat salah agar pemain sempat membaca edukasinya
+const WRONG_NEXT_DELAY_MS = 2000
 
 export function getLevelTarget(level: number): number {
   return 30 + level * 10
 }
 
+// Bonus combo: 3 → kecil, 5 → besar, 10 → jackpot, kelipatan 5 berikutnya tetap dihargai
+export function getComboBonus(combo: number): number {
+  if (combo === 3) return 100
+  if (combo === 5) return 500
+  if (combo === 10) return 1000
+  if (combo > 10 && combo % 5 === 0) return 500
+  return 0
+}
+
 export interface InternalState extends GameState {
   trashKey: number
+  lastBonus: number
 }
 
 export type GameAction =
@@ -45,6 +62,7 @@ export function createInitialState(item: TrashItem): InternalState {
     wrongCount: 0,
     lastAnswer: null,
     trashKey: 0,
+    lastBonus: 0,
   }
 }
 
@@ -60,18 +78,20 @@ function answerReducer(
 
   if (isCorrect) {
     const combo = state.combo + 1
+    const bonus = getComboBonus(combo)
     const cleanCity = state.cleanCity + CLEAN_PER_CORRECT
     const isLevelDone = cleanCity >= getLevelTarget(state.level)
     const isLastLevel = state.level >= LEVELS.length
 
     return {
       ...state,
-      score: state.score + SCORE_CORRECT,
+      score: state.score + SCORE_CORRECT + bonus,
       combo,
       bestCombo: Math.max(state.bestCombo, combo),
       cleanCity,
       correctCount: state.correctCount + 1,
       lastAnswer: 'correct',
+      lastBonus: bonus,
       status: isLevelDone ? (isLastLevel ? 'won' : 'levelComplete') : 'playing',
     }
   }
@@ -85,6 +105,7 @@ function answerReducer(
     combo: 0,
     wrongCount: state.wrongCount + 1,
     lastAnswer: 'wrong',
+    lastBonus: 0,
     status: health <= 0 ? 'gameOver' : 'playing',
   }
 }
@@ -101,6 +122,7 @@ export function gameReducer(
         ...state,
         currentTrash: action.item,
         lastAnswer: null,
+        lastBonus: 0,
         trashKey: state.trashKey + 1,
       }
     case 'CONTINUE_LEVEL':
@@ -112,6 +134,7 @@ export function gameReducer(
         combo: 0,
         currentTrash: action.item,
         lastAnswer: null,
+        lastBonus: 0,
         status: 'playing',
         trashKey: state.trashKey + 1,
       }
@@ -122,12 +145,68 @@ export function gameReducer(
   }
 }
 
-export function useGame() {
-  const [state, dispatch] = useReducer(
-    gameReducer,
-    null,
-    () => createInitialState(pickRandomTrash(1)),
-  )
+// ---------- Simpan / lanjutkan sesi (PHASE 18) ----------
+
+export function loadSavedSession(): InternalState | null {
+  try {
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY)
+    if (!raw) {
+      return null
+    }
+    const parsed = JSON.parse(raw) as InternalState
+    if (
+      parsed &&
+      typeof parsed.level === 'number' &&
+      parsed.currentTrash &&
+      (parsed.status === 'playing' || parsed.status === 'levelComplete')
+    ) {
+      // Buang feedback yang sedang berjalan agar tidak macet setelah refresh
+      return { ...parsed, lastAnswer: null, lastBonus: 0 }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+export function hasSavedSession(): boolean {
+  return loadSavedSession() !== null
+}
+
+function persistSession(state: InternalState): void {
+  try {
+    if (state.status === 'playing' || state.status === 'levelComplete') {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(state))
+    } else {
+      localStorage.removeItem(SESSION_STORAGE_KEY)
+    }
+  } catch {
+    // Penyimpanan diblokir — sesi tidak tersimpan
+  }
+}
+
+export function clearSavedSession(): void {
+  try {
+    localStorage.removeItem(SESSION_STORAGE_KEY)
+  } catch {
+    // Abaikan
+  }
+}
+
+interface UseGameOptions {
+  shouldResume?: boolean
+}
+
+export function useGame(options?: UseGameOptions) {
+  const [state, dispatch] = useReducer(gameReducer, null, () => {
+    if (options?.shouldResume) {
+      const saved = loadSavedSession()
+      if (saved) {
+        return saved
+      }
+    }
+    return createInitialState(pickRandomTrash(1))
+  })
 
   const checkAnswer = useCallback((category: TrashCategory) => {
     dispatch({ type: 'ANSWER', category })
@@ -148,22 +227,31 @@ export function useGame() {
   }, [state.level])
 
   const resetGame = useCallback(() => {
+    clearSavedSession()
     dispatch({ type: 'RESET', item: pickRandomTrash(1) })
   }, [])
 
-  // Setelah jawaban dinilai, tampilkan sampah berikutnya dengan jeda animasi
+  // Setelah jawaban dinilai, tampilkan sampah berikutnya dengan jeda animasi.
+  // Jawaban salah diberi jeda lebih lama untuk membaca edukasi.
   useEffect(() => {
     if (!state.lastAnswer || state.status !== 'playing') {
       return
     }
+    const delay =
+      state.lastAnswer === 'wrong' ? WRONG_NEXT_DELAY_MS : CORRECT_NEXT_DELAY_MS
     const timer = setTimeout(() => {
       dispatch({
         type: 'NEXT_TRASH',
         item: pickRandomTrash(state.level, state.currentTrash?.id),
       })
-    }, NEXT_TRASH_DELAY_MS)
+    }, delay)
     return () => clearTimeout(timer)
   }, [state.lastAnswer, state.status, state.level, state.currentTrash])
+
+  // Simpan sesi berjalan agar refresh tidak mereset progres
+  useEffect(() => {
+    persistSession(state)
+  }, [state])
 
   // Simpan badge saat level selesai dan high score saat permainan berakhir
   useEffect(() => {
