@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react'
-import type { GameEventId, TrashCategory, TrashItem } from '../types/game'
+import type {
+  GameEventId,
+  MasteryModeId,
+  TrashCategory,
+  TrashItem,
+} from '../types/game'
 import {
   getLevelConfig,
   getTrashByCategories,
@@ -139,9 +144,15 @@ export function clearSavedSession(): void {
 
 interface UseGameOptions {
   shouldResume?: boolean
+  /** Level awal untuk Adventure Mode (peta dunia) */
+  startLevel?: number
+  masteryMode?: MasteryModeId | null
 }
 
 export function useGame(options?: UseGameOptions) {
+  const startLevel = options?.startLevel ?? 1
+  const masteryMode = options?.masteryMode ?? null
+
   const [state, dispatch] = useReducer(gameReducer, null, () => {
     if (options?.shouldResume) {
       const saved = loadSavedSession()
@@ -149,7 +160,11 @@ export function useGame(options?: UseGameOptions) {
         return saved
       }
     }
-    return createInitialState(pickRandomTrash(1))
+    const { item, upcoming } = buildLevelQueue(startLevel)
+    return {
+      ...createInitialState(item, { level: startLevel, masteryMode }),
+      upcoming,
+    }
   })
 
   const levelConfig = getLevelConfig(state.level)
@@ -170,19 +185,24 @@ export function useGame(options?: UseGameOptions) {
 
   const resetGame = useCallback(() => {
     clearSavedSession()
-    dispatch({ type: 'RESET', item: pickRandomTrash(1) })
-  }, [])
+    dispatch({
+      type: 'RESET',
+      item: pickRandomTrash(startLevel),
+      level: startLevel,
+      masteryMode,
+    })
+  }, [startLevel, masteryMode])
 
-  // Timer mundur untuk mode chaos & boss
+  // Timer mundur untuk mode chaos, boss, dan Mastery
   useEffect(() => {
-    if (levelConfig.timeLimitMs === 0 || state.status !== 'playing') {
+    if (state.timeLimitMs === 0 || state.status !== 'playing') {
       return
     }
     const timer = setInterval(() => {
       dispatch({ type: 'TICK', deltaMs: TICK_MS })
     }, TICK_MS)
     return () => clearInterval(timer)
-  }, [levelConfig.timeLimitMs, state.status])
+  }, [state.timeLimitMs, state.status])
 
   // Setelah jawaban dinilai, tampilkan sampah berikutnya dengan jeda animasi
   useEffect(() => {
@@ -208,7 +228,11 @@ export function useGame(options?: UseGameOptions) {
   // Event acak Chaos City tiap beberapa sampah terjawab
   const lastEventAt = useRef(0)
   useEffect(() => {
-    if (levelConfig.mode !== 'chaos' || state.status !== 'playing') {
+    if (
+      levelConfig.mode !== 'chaos' ||
+      state.status !== 'playing' ||
+      masteryMode
+    ) {
       return
     }
     const handled = state.correctCount + state.wrongCount + state.timeoutCount
@@ -222,12 +246,16 @@ export function useGame(options?: UseGameOptions) {
     state.correctCount,
     state.wrongCount,
     state.timeoutCount,
+    masteryMode,
   ])
 
-  // Simpan sesi berjalan agar refresh tidak mereset progres
+  // Simpan sesi berjalan agar refresh tidak mereset progres.
+  // Sesi Mastery tidak disimpan — mode itu selalu dimulai dari awal.
   useEffect(() => {
-    persistSession(state)
-  }, [state])
+    if (!masteryMode) {
+      persistSession(state)
+    }
+  }, [state, masteryMode])
 
   // Simpan badge saat level selesai dan high score saat permainan berakhir
   useEffect(() => {

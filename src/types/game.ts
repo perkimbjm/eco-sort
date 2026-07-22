@@ -98,6 +98,64 @@ export interface DecisionOption {
   explanation: string
 }
 
+// ---------- Phase 21-30: Adventure ----------
+
+export interface WorldArea {
+  id: string
+  name: string
+  emoji: string
+  /** Level yang tercakup area ini */
+  levels: number[]
+  /** Level minimum yang harus pernah dicapai agar area terbuka */
+  unlockAtLevel: number
+  intro: string
+  outro: string
+  newCategories: TrashCategory[]
+}
+
+export type CardRarity = 'umum' | 'jarang' | 'langka' | 'legendaris'
+
+export interface CollectionCard {
+  /** Sama dengan id TrashItem */
+  id: string
+  rarity: CardRarity
+  fact: string
+}
+
+export type CompanionSkill = 'organic_bonus' | 'score_bonus' | 'combo_guard'
+
+export interface Companion {
+  id: string
+  name: string
+  emoji: string
+  skill: CompanionSkill
+  skillLabel: string
+  description: string
+  /** Jumlah kartu koleksi yang dibutuhkan untuk membuka */
+  unlockAtCards: number
+}
+
+export interface Secret {
+  id: string
+  name: string
+  emoji: string
+  /** Petunjuk samar — isi sebenarnya baru terungkap setelah ditemukan */
+  hint: string
+  reveal: string
+}
+
+export type MasteryModeId = 'speed' | 'endless' | 'perfect'
+
+export interface MasteryMode {
+  id: MasteryModeId
+  name: string
+  emoji: string
+  description: string
+  rule: string
+}
+
+export type LeaderboardCategory = 'score' | 'combo' | 'city'
+
 export interface CategoryInfo {
   id: TrashCategory
   label: string
@@ -181,6 +239,25 @@ export interface Profile {
   unlocks: string[]
   /** Peringkat akhir terbaik yang pernah diraih di Level 7 */
   bestRank: RankGrade | null
+
+  // ---- Phase 21-30 ----
+  /** Level tertinggi yang pernah dicapai — penentu terbukanya area */
+  highestLevel: number
+  /** Id sampah yang kartunya sudah terkumpul */
+  collected: string[]
+  /** Item Eco Ranger yang sedang dipakai */
+  equipped: string[]
+  companions: string[]
+  activeCompanion: string | null
+  /** XP tiap companion, menentukan levelnya */
+  companionXp: Record<string, number>
+  secretsFound: string[]
+  /** Skor terbaik tiap mode Mastery */
+  masteryScores: Record<string, number>
+  /** Pemain sudah menonton adegan penutup */
+  hasSeenEnding: boolean
+  /** Kota terbersih yang pernah dicapai, dalam persen */
+  bestCityPercent: number
 }
 
 export interface LeaderboardEntry {
@@ -188,6 +265,10 @@ export interface LeaderboardEntry {
   score: number
   level: number
   date: string
+  /** Combo terbaik pada permainan itu */
+  combo?: number
+  /** Clean City tertinggi pada permainan itu, dalam persen */
+  cityPercent?: number
 }
 
 export interface RangerItem {

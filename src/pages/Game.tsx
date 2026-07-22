@@ -1,5 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import type { MasteryModeId } from '../types/game'
+import { getMasteryMode } from '../data/mastery'
+import { EndingScene } from '../components/EndingScene'
 import { useGame, FEVER_COMBO, isFeverActive } from '../hooks/useGame'
 import { useProfile } from '../hooks/useProfile'
 import { useToasts } from '../hooks/useToasts'
@@ -34,10 +37,17 @@ const CITY_UPGRADE_REWARD = 50
 
 interface GameProps {
   shouldResume: boolean
+  startLevel?: number
+  masteryMode?: MasteryModeId | null
   onExit: () => void
 }
 
-export function Game({ shouldResume, onExit }: GameProps) {
+export function Game({
+  shouldResume,
+  startLevel,
+  masteryMode = null,
+  onExit,
+}: GameProps) {
   const {
     state,
     levelConfig,
@@ -46,7 +56,7 @@ export function Game({ shouldResume, onExit }: GameProps) {
     decide,
     continueToNextLevel,
     resetGame,
-  } = useGame({ shouldResume })
+  } = useGame({ shouldResume, startLevel, masteryMode })
   const {
     profile,
     recordAnswer,
@@ -55,9 +65,13 @@ export function Game({ shouldResume, onExit }: GameProps) {
     addEcoPoints,
     unlockAbility,
     recordRank,
+    recordMasteryScore,
+    markEndingSeen,
     toggleMuted,
   } = useProfile()
   const { toasts, pushToasts } = useToasts()
+  // Adegan penutup ditutup lewat aksi pemain, jadi cukup lacak status "sudah ditutup"
+  const [isEndingDismissed, setEndingDismissed] = useState(false)
 
   const activeCategories = CATEGORIES.filter((category) =>
     levelConfig.categories.includes(category.id),
@@ -68,6 +82,12 @@ export function Game({ shouldResume, onExit }: GameProps) {
   const unlockedItems = getUnlockedItems(profile.xp)
   const isFever = isFeverActive(state.combo)
   const isDeciding = state.bossPhase === 'decision' && state.status === 'playing'
+  // PHASE 27 — adegan penutup tampil setelah Raja Sampah dikalahkan
+  const isEndingVisible =
+    state.status === 'won' &&
+    state.level >= 7 &&
+    !masteryMode &&
+    !isEndingDismissed
 
   // Eco Fever memakai track combo agar musiknya terasa "meningkat"
   useBackgroundMusic(
@@ -109,6 +129,7 @@ export function Game({ shouldResume, onExit }: GameProps) {
         bonus: state.lastBonus,
         gained: Math.max(0, state.lastGained),
         sessionScore: state.score,
+        trashId: state.currentTrash.id,
       }),
     )
   }, [state, isMuted, recordAnswer, pushToasts])
@@ -170,28 +191,45 @@ export function Game({ shouldResume, onExit }: GameProps) {
       if (state.status === 'levelComplete') {
         playSound('levelUp', isMuted)
       }
-      pushToasts(recordLevelComplete())
-      // Hadiah kemampuan sesuai level yang baru dituntaskan
-      if (state.level === 6) {
-        pushToasts(unlockAbility(UNLOCK_SPEED_SORTING))
-      }
-      if (state.status === 'won' && state.level >= 7) {
-        pushToasts(unlockAbility(UNLOCK_NEW_GAME_PLUS))
+      // Mode Mastery tidak memengaruhi progresi petualangan
+      if (!masteryMode) {
+        pushToasts(recordLevelComplete(state.level, percent))
+        if (state.level === 6) {
+          pushToasts(unlockAbility(UNLOCK_SPEED_SORTING))
+        }
+        if (state.status === 'won' && state.level >= 7) {
+          pushToasts(unlockAbility(UNLOCK_NEW_GAME_PLUS))
+        }
       }
     } else if (state.status === 'gameOver') {
       playSound('gameOver', isMuted)
     }
     if (state.status === 'won' || state.status === 'gameOver') {
-      pushToasts(recordGameEnd(state.status === 'won', state.score, state.level))
+      if (masteryMode) {
+        recordMasteryScore(masteryMode, state.score)
+      }
+      pushToasts(
+        recordGameEnd(
+          state.status === 'won',
+          state.score,
+          state.level,
+          state.bestCombo,
+          percent,
+        ),
+      )
     }
   }, [
     state.status,
     state.score,
     state.level,
+    state.bestCombo,
+    percent,
+    masteryMode,
     isMuted,
     pushToasts,
     recordLevelComplete,
     recordGameEnd,
+    recordMasteryScore,
     unlockAbility,
   ])
 
@@ -263,7 +301,11 @@ export function Game({ shouldResume, onExit }: GameProps) {
         className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-3 p-4"
       >
         <GameHeader
-          levelName={`Level ${state.level} · ${levelConfig.name}`}
+          levelName={
+            masteryMode
+              ? `${getMasteryMode(masteryMode)?.emoji ?? '⚡'} ${getMasteryMode(masteryMode)?.name ?? 'Mastery'}`
+              : `Level ${state.level} · ${levelConfig.name}`
+          }
           isMuted={isMuted}
           onToggleMute={toggleMuted}
           onExit={onExit}
@@ -288,6 +330,17 @@ export function Game({ shouldResume, onExit }: GameProps) {
           />
         ) : (
           <CityProgress cleanCity={state.cleanCity} levelTarget={levelTarget} />
+        )}
+
+        {masteryMode === 'speed' && (
+          <div className="rounded-2xl bg-white/90 px-4 py-2 text-center shadow">
+            <span className="text-xs font-bold text-emerald-800">
+              ⏳ Sisa sesi:{' '}
+              <span className="tabular-nums text-orange-600">
+                {Math.ceil(state.sessionTimeLeftMs / 1000)}s
+              </span>
+            </span>
+          </div>
         )}
 
         {state.timeLimitMs > 0 && !isDeciding && (
@@ -412,6 +465,19 @@ export function Game({ shouldResume, onExit }: GameProps) {
           </div>
         )}
       </motion.div>
+
+      {/* PHASE 27 — adegan penutup sebelum layar hasil */}
+      <AnimatePresence>
+        {isEndingVisible && (
+          <EndingScene
+            playerName={profile.playerName}
+            onFinish={() => {
+              markEndingSeen()
+              setEndingDismissed(true)
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         <LevelCompleteModal

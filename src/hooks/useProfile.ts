@@ -62,14 +62,27 @@ export function useProfile() {
     return result.toasts
   }, [])
 
-  const recordLevelComplete = useCallback((): ProgressToast[] => {
-    const result = processLevelComplete(profileRef.current)
-    setProfile(result.profile)
-    return result.toasts
-  }, [])
+  const recordLevelComplete = useCallback(
+    (levelReached?: number, cityPercent?: number): ProgressToast[] => {
+      const result = processLevelComplete(
+        profileRef.current,
+        levelReached,
+        cityPercent,
+      )
+      setProfile(result.profile)
+      return result.toasts
+    },
+    [],
+  )
 
   const recordGameEnd = useCallback(
-    (didWin: boolean, score: number, level: number): ProgressToast[] => {
+    (
+      didWin: boolean,
+      score: number,
+      level: number,
+      combo = 0,
+      cityPercent = 0,
+    ): ProgressToast[] => {
       const result = processGameEnd(profileRef.current, didWin)
       setProfile(result.profile)
       if (score > 0) {
@@ -79,6 +92,8 @@ export function useProfile() {
             score,
             level,
             date: todayString(),
+            combo,
+            cityPercent,
           }),
         )
       }
@@ -121,6 +136,40 @@ export function useProfile() {
     }))
   }, [])
 
+  /** Pasang/lepas perlengkapan Eco Ranger */
+  const toggleEquipped = useCallback((itemId: string) => {
+    setProfile((current) => ({
+      ...current,
+      equipped: current.equipped.includes(itemId)
+        ? current.equipped.filter((id) => id !== itemId)
+        : [...current.equipped, itemId],
+    }))
+  }, [])
+
+  const selectCompanion = useCallback((companionId: string | null) => {
+    setProfile((current) => ({ ...current, activeCompanion: companionId }))
+  }, [])
+
+  const recordMasteryScore = useCallback(
+    (modeId: string, score: number) => {
+      setProfile((current) =>
+        score > (current.masteryScores[modeId] ?? 0)
+          ? {
+              ...current,
+              masteryScores: { ...current.masteryScores, [modeId]: score },
+            }
+          : current,
+      )
+    },
+    [],
+  )
+
+  const markEndingSeen = useCallback(() => {
+    setProfile((current) =>
+      current.hasSeenEnding ? current : { ...current, hasSeenEnding: true },
+    )
+  }, [])
+
   const setPlayerName = useCallback((playerName: string) => {
     const cleaned = playerName.trim().slice(0, 20)
     setProfile((current) => ({
@@ -143,6 +192,10 @@ export function useProfile() {
     addEcoPoints,
     unlockAbility,
     recordRank,
+    toggleEquipped,
+    selectCompanion,
+    recordMasteryScore,
+    markEndingSeen,
     setPlayerName,
     toggleMuted,
   }

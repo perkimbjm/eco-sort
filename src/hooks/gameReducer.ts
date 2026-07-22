@@ -1,11 +1,16 @@
 import type {
   GameEventId,
   GameState,
+  MasteryModeId,
   TrashCategory,
   TrashItem,
 } from '../types/game'
 import { getLevelConfig, LEVELS } from '../data/trashData'
 import { EVENT_TIME_MULTIPLIER } from '../data/endgame'
+import { getEndlessTimeLimit, MASTERY_TIME_LIMITS } from '../data/mastery'
+
+/** Durasi satu sesi Speed Mode */
+export const SPEED_MODE_SESSION_MS = 60000
 
 export const MAX_HEALTH = 3
 export const SCORE_CORRECT = 100
@@ -70,6 +75,15 @@ export interface InternalState extends GameState {
   lastBonus: number
   /** Total skor yang benar-benar ditambahkan pada jawaban terakhir */
   lastGained: number
+  /** Mode Mastery yang sedang dimainkan; null = petualangan biasa */
+  masteryMode: MasteryModeId | null
+  /** Sisa waktu sesi untuk Speed Mode */
+  sessionTimeLeftMs: number
+}
+
+export interface StartOptions {
+  level?: number
+  masteryMode?: MasteryModeId | null
 }
 
 export type GameAction =
@@ -79,13 +93,30 @@ export type GameAction =
   | { type: 'SET_EVENT'; event: GameEventId | null }
   | { type: 'DECIDE'; isBest: boolean }
   | { type: 'CONTINUE_LEVEL'; item: TrashItem; upcoming: TrashItem[] }
-  | { type: 'RESET'; item: TrashItem }
+  | {
+      type: 'RESET'
+      item: TrashItem
+      level?: number
+      masteryMode?: MasteryModeId | null
+    }
 
-export function createInitialState(item: TrashItem): InternalState {
+export function createInitialState(
+  item: TrashItem,
+  options: StartOptions = {},
+): InternalState {
+  const level = options.level ?? 1
+  const mastery = options.masteryMode ?? null
+  const config = getLevelConfig(level)
+  // Mode Mastery memakai aturannya sendiri, bukan konfigurasi level
+  const timeLimitMs = mastery
+    ? MASTERY_TIME_LIMITS[mastery]
+    : config.timeLimitMs
+  const health = mastery === 'perfect' ? 1 : MAX_HEALTH
+
   return {
     score: 0,
-    level: 1,
-    health: MAX_HEALTH,
+    level,
+    health,
     combo: 0,
     cleanCity: 0,
     currentTrash: item,
@@ -96,12 +127,12 @@ export function createInitialState(item: TrashItem): InternalState {
     lastAnswer: null,
     upcoming: [],
     isRareTrash: false,
-    timeLeftMs: 0,
-    timeLimitMs: 0,
+    timeLeftMs: timeLimitMs,
+    timeLimitMs,
     activeEvent: null,
     eventTurnsLeft: 0,
     hasComboShield: false,
-    bossPhase: null,
+    bossPhase: !mastery && config.mode === 'boss' ? 'storm' : null,
     bossHp: BOSS_MAX_HP,
     stormRemaining: STORM_LENGTH,
     lastClutch: false,
@@ -111,6 +142,8 @@ export function createInitialState(item: TrashItem): InternalState {
     trashKey: 0,
     lastBonus: 0,
     lastGained: 0,
+    masteryMode: mastery,
+    sessionTimeLeftMs: mastery === 'speed' ? SPEED_MODE_SESSION_MS : 0,
   }
 }
 
@@ -179,8 +212,14 @@ function applyCorrect(state: InternalState): InternalState {
     return { ...base, ...advanceStorm(base) }
   }
 
-  // ---- Mode classic & chaos ----
   const cleanCity = state.cleanCity + CLEAN_PER_CORRECT
+
+  // ---- Mode Mastery: tidak ada penyelesaian level, main sampai gagal/waktu habis ----
+  if (state.masteryMode) {
+    return { ...base, cleanCity }
+  }
+
+  // ---- Mode classic & chaos ----
   const isLevelDone = cleanCity >= getLevelTarget(state.level)
   const isLastLevel = state.level >= LEVELS.length
   return {
@@ -250,6 +289,22 @@ function applyTimeout(state: InternalState): InternalState {
 
 function tickReducer(state: InternalState, deltaMs: number): InternalState {
   const elapsedMs = state.elapsedMs + deltaMs
+
+  // Speed Mode: sesi berakhir saat waktu total habis
+  if (state.masteryMode === 'speed' && state.status === 'playing') {
+    const sessionTimeLeftMs = state.sessionTimeLeftMs - deltaMs
+    if (sessionTimeLeftMs <= 0) {
+      return {
+        ...state,
+        elapsedMs,
+        sessionTimeLeftMs: 0,
+        status: 'won',
+        lastAnswer: null,
+      }
+    }
+    state = { ...state, sessionTimeLeftMs }
+  }
+
   const isTimerRunning =
     state.status === 'playing' &&
     state.timeLimitMs > 0 &&
@@ -279,7 +334,13 @@ function nextTrashReducer(
 
   // Event kedaluwarsa saat jatah gilirannya habis
   const activeEvent = state.eventTurnsLeft > 0 ? state.activeEvent : null
-  const timeLimitMs = getEffectiveTimeLimit(state.level, activeEvent)
+  // Endless Mode makin cepat seiring banyaknya sampah yang ditangani
+  const handled = state.correctCount + state.wrongCount + state.timeoutCount
+  const timeLimitMs = state.masteryMode
+    ? state.masteryMode === 'endless'
+      ? getEndlessTimeLimit(handled)
+      : MASTERY_TIME_LIMITS[state.masteryMode]
+    : getEffectiveTimeLimit(state.level, activeEvent)
 
   return {
     ...state,
@@ -375,7 +436,10 @@ export function gameReducer(
     case 'CONTINUE_LEVEL':
       return continueLevelReducer(state, action.item, action.upcoming)
     case 'RESET':
-      return createInitialState(action.item)
+      return createInitialState(action.item, {
+        level: action.level,
+        masteryMode: action.masteryMode ?? null,
+      })
     default:
       return state
   }

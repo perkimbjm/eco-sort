@@ -16,7 +16,14 @@ const LEADERBOARD_MAX = 10
 
 export const RANGER_ITEMS: RangerItem[] = [
   { id: 'eco-hat', name: 'Eco Hat', emoji: '🧢', unlockRangerLevel: 5 },
+  { id: 'rescue-helmet', name: 'Rescue Helmet', emoji: '⛑️', unlockRangerLevel: 8 },
   { id: 'green-suit', name: 'Green Suit', emoji: '🥋', unlockRangerLevel: 10 },
+  {
+    id: 'guardian-badge',
+    name: 'City Guardian Badge',
+    emoji: '🎖️',
+    unlockRangerLevel: 15,
+  },
 ]
 
 export function getRangerLevel(xp: number): number {
@@ -65,7 +72,42 @@ export function createDefaultProfile(): Profile {
     isMuted: false,
     unlocks: [],
     bestRank: null,
+    highestLevel: 1,
+    collected: [],
+    equipped: [],
+    companions: [],
+    activeCompanion: null,
+    companionXp: {},
+    secretsFound: [],
+    masteryScores: {},
+    hasSeenEnding: false,
+    bestCityPercent: 0,
   }
+}
+
+/**
+ * Profil lama belum punya `highestLevel`. Tanpa migrasi, pemain yang sudah
+ * menamatkan permainan akan melihat seluruh peta terkunci lagi. Level tertinggi
+ * disimpulkan dari badge yang sudah diraih dan riwayat papan skor.
+ */
+function inferHighestLevel(parsed: Partial<Profile>): number {
+  const badges = parsed.badges ?? loadBadges()
+  const fromBadges = badges.includes('eco-legend')
+    ? 8
+    : badges.includes('city-savior')
+      ? 7
+      : badges.includes('pahlawan-lingkungan')
+        ? 6
+        : badges.includes('eco-warrior')
+          ? 4
+          : badges.includes('pemilah-pemula')
+            ? 2
+            : 1
+  const fromLeaderboard = loadLeaderboard().reduce(
+    (best, entry) => Math.max(best, entry.level ?? 1),
+    1,
+  )
+  return Math.max(fromBadges, fromLeaderboard)
 }
 
 export function loadProfile(): Profile {
@@ -75,7 +117,13 @@ export function loadProfile(): Profile {
       return createDefaultProfile()
     }
     const parsed = JSON.parse(raw) as Partial<Profile>
-    return { ...createDefaultProfile(), ...parsed }
+    const merged = { ...createDefaultProfile(), ...parsed }
+    // Selalu ambil yang tertinggi: aman untuk profil lama tanpa field ini
+    // maupun profil yang sempat tersimpan dengan nilai bawaan terlalu rendah.
+    return {
+      ...merged,
+      highestLevel: Math.max(merged.highestLevel, inferHighestLevel(parsed)),
+    }
   } catch {
     return createDefaultProfile()
   }
@@ -150,6 +198,7 @@ export function loadLeaderboard(): LeaderboardEntry[] {
 }
 
 export function addLeaderboardEntry(entry: LeaderboardEntry): LeaderboardEntry[] {
+  // Disimpan dalam satu daftar; pemeringkatan per kategori dilakukan saat tampil
   const updated = [...loadLeaderboard(), entry]
     .sort((a, b) => b.score - a.score)
     .slice(0, LEADERBOARD_MAX)

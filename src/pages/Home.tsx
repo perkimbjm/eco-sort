@@ -4,14 +4,26 @@ import {
   Award,
   BarChart3,
   HelpCircle,
+  Layers,
+  Map,
   Play,
   RotateCcw,
+  Sparkles,
   Trash2,
   Trophy,
+  User,
   Volume2,
   VolumeX,
   X,
+  Zap,
 } from 'lucide-react'
+import type { StartRequest } from '../App'
+import type { MasteryModeId } from '../types/game'
+import { WorldMap } from '../components/WorldMap'
+import { CollectionPanel } from '../components/CollectionPanel'
+import { CharacterPanel } from '../components/CharacterPanel'
+import { SecretsPanel } from '../components/SecretsPanel'
+import { MasteryPanel } from '../components/MasteryPanel'
 import { CATEGORIES } from '../data/trashData'
 import { loadBadges, loadHighScore } from '../utils/storage'
 import { resetAllData } from '../utils/profile'
@@ -25,16 +37,31 @@ import { LeaderboardPanel } from '../components/LeaderboardPanel'
 import { StatsPanel } from '../components/StatsPanel'
 
 interface HomeProps {
-  onStart: (shouldResume: boolean) => void
+  onStart: (request: StartRequest) => void
 }
 
-type HomeModal = 'howto' | 'achievements' | 'leaderboard' | 'stats' | null
+type HomeModal =
+  | 'howto'
+  | 'achievements'
+  | 'leaderboard'
+  | 'stats'
+  | 'world'
+  | 'collection'
+  | 'character'
+  | 'secrets'
+  | 'mastery'
+  | null
 
 const MODAL_TITLES: Record<Exclude<HomeModal, null>, string> = {
   howto: '📖 Cara Bermain',
   achievements: '🏅 Prestasi',
   leaderboard: '🏆 Ranking',
   stats: '📊 Statistik',
+  world: '🗺️ Eco World',
+  collection: '🃏 Koleksi',
+  character: '🦸 Karakter',
+  secrets: '✨ Rahasia',
+  mastery: '⚡ Mastery Mode',
 }
 
 const menuButton =
@@ -43,8 +70,15 @@ const menuButton =
 export function Home({ onStart }: HomeProps) {
   const [activeModal, setActiveModal] = useState<HomeModal>(null)
   const [canResume, setCanResume] = useState(hasSavedSession)
-  const { profile, dailyMissions, leaderboard, setPlayerName, toggleMuted } =
-    useProfile()
+  const {
+    profile,
+    dailyMissions,
+    leaderboard,
+    setPlayerName,
+    toggleEquipped,
+    selectCompanion,
+    toggleMuted,
+  } = useProfile()
   const highScore = loadHighScore()
 
   useBackgroundMusic('menu', profile.isMuted)
@@ -116,7 +150,7 @@ export function Home({ onStart }: HomeProps) {
               type="button"
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.96 }}
-              onClick={() => onStart(true)}
+              onClick={() => onStart({ shouldResume: true })}
               className={`${menuButton} border-emerald-700 bg-emerald-500 text-white hover:bg-emerald-400`}
             >
               <RotateCcw className="h-5 w-5" aria-hidden="true" />
@@ -130,7 +164,7 @@ export function Home({ onStart }: HomeProps) {
             onClick={() => {
               clearSavedSession()
               setCanResume(false)
-              onStart(false)
+              onStart({ shouldResume: false })
             }}
             className={`${menuButton} border-green-700 bg-green-500 text-white hover:bg-green-400`}
           >
@@ -138,7 +172,54 @@ export function Home({ onStart }: HomeProps) {
             {canResume ? 'Game Baru' : 'Mulai Game'}
           </motion.button>
 
+          <motion.button
+            type="button"
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.96 }}
+            onClick={() => setActiveModal('world')}
+            className={`${menuButton} border-teal-700 bg-teal-500 text-white hover:bg-teal-400`}
+          >
+            <Map className="h-5 w-5" aria-hidden="true" />
+            Peta Eco World
+          </motion.button>
+
           <div className="grid grid-cols-2 gap-2.5">
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setActiveModal('collection')}
+              className={`${menuButton} border-purple-400 bg-purple-300 px-3 text-sm text-purple-950 hover:bg-purple-200`}
+            >
+              <Layers className="h-4 w-4" aria-hidden="true" />
+              Koleksi
+            </motion.button>
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setActiveModal('character')}
+              className={`${menuButton} border-pink-400 bg-pink-300 px-3 text-sm text-pink-950 hover:bg-pink-200`}
+            >
+              <User className="h-4 w-4" aria-hidden="true" />
+              Karakter
+            </motion.button>
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setActiveModal('mastery')}
+              className={`${menuButton} border-indigo-400 bg-indigo-300 px-3 text-sm text-indigo-950 hover:bg-indigo-200`}
+            >
+              <Zap className="h-4 w-4" aria-hidden="true" />
+              Mastery
+            </motion.button>
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setActiveModal('secrets')}
+              className={`${menuButton} border-violet-400 bg-violet-300 px-3 text-sm text-violet-950 hover:bg-violet-200`}
+            >
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+              Rahasia
+            </motion.button>
             <motion.button
               type="button"
               whileTap={{ scale: 0.96 }}
@@ -270,6 +351,35 @@ export function Home({ onStart }: HomeProps) {
                   <LeaderboardPanel entries={leaderboard} profile={profile} />
                 )}
                 {activeModal === 'stats' && <StatsPanel profile={profile} />}
+                {activeModal === 'world' && (
+                  <WorldMap
+                    profile={profile}
+                    onStartLevel={(level) => {
+                      clearSavedSession()
+                      onStart({ shouldResume: false, startLevel: level })
+                    }}
+                  />
+                )}
+                {activeModal === 'collection' && (
+                  <CollectionPanel profile={profile} />
+                )}
+                {activeModal === 'character' && (
+                  <CharacterPanel
+                    profile={profile}
+                    onToggleItem={toggleEquipped}
+                    onSelectCompanion={selectCompanion}
+                  />
+                )}
+                {activeModal === 'secrets' && <SecretsPanel profile={profile} />}
+                {activeModal === 'mastery' && (
+                  <MasteryPanel
+                    profile={profile}
+                    onStartMode={(modeId: MasteryModeId) => {
+                      clearSavedSession()
+                      onStart({ shouldResume: false, masteryMode: modeId })
+                    }}
+                  />
+                )}
               </div>
             </motion.div>
           </motion.div>

@@ -1,7 +1,18 @@
 import type { Mission, Profile, TrashCategory } from '../types/game'
 import { findNewAchievements } from '../data/achievements'
 import { MISSION_REWARD_ECO_POINTS } from '../data/missions'
+import { COLLECTION_CARDS, getCard, RARITY_STYLES } from '../data/collection'
+import {
+  COMPANIONS,
+  getCompanion,
+  getCompanionLevel,
+  getCompanionScoreBonus,
+} from '../data/companions'
+import { findNewSecrets } from '../data/secrets'
 import { getRangerLevel, getUnlockedItems } from './profile'
+
+/** XP companion per jawaban benar */
+export const COMPANION_XP_PER_CORRECT = 15
 
 export const XP_PER_CORRECT = 10
 export const XP_PER_COMBO_MILESTONE = 50
@@ -27,6 +38,8 @@ export interface AnswerEvent {
   sessionScore: number
   /** Skor yang benar-benar diperoleh, sudah termasuk pengali Eco Fever */
   gained?: number
+  /** Id sampah yang dijawab — untuk membuka kartu koleksi */
+  trashId?: string
 }
 
 function collectMetaToasts(
@@ -34,6 +47,21 @@ function collectMetaToasts(
   after: Profile,
   toasts: ProgressToast[],
 ): Profile {
+  // Kenaikan level Eco Buddy yang sedang aktif
+  const buddyId = after.activeCompanion
+  if (buddyId) {
+    const levelBefore = getCompanionLevel(before.companionXp[buddyId] ?? 0)
+    const levelAfter = getCompanionLevel(after.companionXp[buddyId] ?? 0)
+    if (levelAfter > levelBefore) {
+      const buddy = getCompanion(buddyId)
+      toasts.push({
+        emoji: buddy?.emoji ?? '🐾',
+        title: `${buddy?.name ?? 'Eco Buddy'} naik ke Lv.${levelAfter}!`,
+        subtitle: buddy?.skillLabel,
+      })
+    }
+  }
+
   const levelBefore = getRangerLevel(before.xp)
   const levelAfter = getRangerLevel(after.xp)
   if (levelAfter > levelBefore) {
@@ -52,24 +80,79 @@ function collectMetaToasts(
     }
   }
 
-  const earned = findNewAchievements(after)
-  if (earned.length === 0) {
-    return after
+  let result = after
+
+  const earned = findNewAchievements(result)
+  if (earned.length > 0) {
+    for (const achievement of earned) {
+      toasts.push({
+        emoji: achievement.emoji,
+        title: `Achievement: ${achievement.name}`,
+        subtitle: achievement.description,
+      })
+    }
+    result = {
+      ...result,
+      achievements: [
+        ...result.achievements,
+        ...earned.map((achievement) => achievement.id),
+      ],
+    }
   }
-  for (const achievement of earned) {
-    toasts.push({
-      emoji: achievement.emoji,
-      title: `Achievement: ${achievement.name}`,
-      subtitle: achievement.description,
-    })
+
+  // Eco Buddy baru terbuka seiring bertambahnya koleksi kartu
+  const newCompanions = COMPANIONS.filter(
+    (companion) =>
+      !result.companions.includes(companion.id) &&
+      result.collected.length >= companion.unlockAtCards,
+  )
+  if (newCompanions.length > 0) {
+    for (const companion of newCompanions) {
+      toasts.push({
+        emoji: companion.emoji,
+        title: `Eco Buddy bergabung: ${companion.name}!`,
+        subtitle: companion.skillLabel,
+      })
+    }
+    result = {
+      ...result,
+      companions: [
+        ...result.companions,
+        ...newCompanions.map((companion) => companion.id),
+      ],
+      // Buddy pertama langsung diaktifkan agar manfaatnya segera terasa
+      activeCompanion:
+        result.activeCompanion ?? newCompanions[0].id,
+    }
   }
-  return {
-    ...after,
-    achievements: [
-      ...after.achievements,
-      ...earned.map((achievement) => achievement.id),
-    ],
+
+  const maxCompanionLevel = Math.max(
+    1,
+    ...Object.values(result.companionXp).map(getCompanionLevel),
+  )
+  const secrets = findNewSecrets({
+    profile: result,
+    collectionTotal: COLLECTION_CARDS.length,
+    maxCompanionLevel,
+  })
+  if (secrets.length > 0) {
+    for (const secret of secrets) {
+      toasts.push({
+        emoji: secret.emoji,
+        title: `✨ RAHASIA TERBUKA: ${secret.name}`,
+        subtitle: secret.reveal,
+      })
+    }
+    result = {
+      ...result,
+      secretsFound: [
+        ...result.secretsFound,
+        ...secrets.map((secret) => secret.id),
+      ],
+    }
   }
+
+  return result
 }
 
 function progressMissions(
@@ -135,23 +218,56 @@ export function processAnswer(
       : { ...stats, wrong: stats.wrong + 1 },
   }
 
+  // Bonus Eco Point dari Eco Buddy yang sedang aktif
+  const companion = profile.activeCompanion
+    ? getCompanion(profile.activeCompanion)
+    : undefined
+  const companionBonus = getCompanionScoreBonus(
+    companion,
+    profile.companionXp[companion?.id ?? ''] ?? 0,
+    event.isCorrect,
+    event.category,
+  )
+
   let updated: Profile = event.isCorrect
     ? {
         ...profile,
         totalCorrect: profile.totalCorrect + 1,
         maxCombo: Math.max(profile.maxCombo, event.comboAfter),
-        ecoPoints: profile.ecoPoints + (event.gained ?? 100 + event.bonus),
+        ecoPoints:
+          profile.ecoPoints + (event.gained ?? 100 + event.bonus) + companionBonus,
         xp:
           profile.xp +
           XP_PER_CORRECT +
           (event.bonus > 0 ? XP_PER_COMBO_MILESTONE : 0),
         categoryStats,
+        companionXp: companion
+          ? {
+              ...profile.companionXp,
+              [companion.id]:
+                (profile.companionXp[companion.id] ?? 0) +
+                COMPANION_XP_PER_CORRECT,
+            }
+          : profile.companionXp,
       }
     : {
         ...profile,
         totalWrong: profile.totalWrong + 1,
         categoryStats,
       }
+
+  // PHASE 23 — kartu koleksi terbuka saat sampahnya dipilah dengan benar
+  if (event.isCorrect && event.trashId && !updated.collected.includes(event.trashId)) {
+    updated = { ...updated, collected: [...updated.collected, event.trashId] }
+    const card = getCard(event.trashId)
+    if (card) {
+      toasts.push({
+        emoji: '🃏',
+        title: `Kartu baru: ${RARITY_STYLES[card.rarity].label}!`,
+        subtitle: card.fact,
+      })
+    }
+  }
 
   const missionResult = progressMissions(missions, event, toasts)
   if (missionResult.rewardEcoPoints > 0) {
@@ -165,9 +281,20 @@ export function processAnswer(
   return { profile: updated, missions: missionResult.missions, toasts }
 }
 
-export function processLevelComplete(profile: Profile): ProgressResult {
+export function processLevelComplete(
+  profile: Profile,
+  levelReached = profile.highestLevel,
+  cityPercent = 0,
+): ProgressResult {
   const toasts: ProgressToast[] = []
-  let updated: Profile = { ...profile, xp: profile.xp + XP_PER_LEVEL_COMPLETE }
+  // Level berikutnya yang terbuka = level yang baru dituntaskan + 1
+  const highestLevel = Math.max(profile.highestLevel, levelReached + 1)
+  let updated: Profile = {
+    ...profile,
+    xp: profile.xp + XP_PER_LEVEL_COMPLETE,
+    highestLevel,
+    bestCityPercent: Math.max(profile.bestCityPercent, cityPercent),
+  }
   updated = collectMetaToasts(profile, updated, toasts)
   return { profile: updated, missions: [], toasts }
 }
