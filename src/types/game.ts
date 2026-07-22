@@ -16,6 +16,25 @@ export interface TrashItem {
 
 export type GameStatus = 'playing' | 'levelComplete' | 'gameOver' | 'won'
 
+// Mode permainan per level (Level 6-7 Adrenaline Update)
+// classic  : satu sampah, tanpa timer — level 1-5
+// chaos    : antrean sampah + timer + event acak — level 6
+// boss     : tiga fase melawan Raja Sampah — level 7
+export type LevelMode = 'classic' | 'chaos' | 'boss'
+
+export type BossPhase = 'storm' | 'battle' | 'decision'
+
+export type GameEventId = 'hujan-deras' | 'truk-sampah' | 'warga-membantu'
+
+export interface GameEvent {
+  id: GameEventId
+  name: string
+  emoji: string
+  description: string
+  /** Berapa sampah ke depan efeknya berlaku (0 = efek sekali pakai) */
+  turns: number
+}
+
 export interface GameState {
   score: number
   level: number
@@ -27,7 +46,56 @@ export interface GameState {
   bestCombo: number
   correctCount: number
   wrongCount: number
-  lastAnswer: 'correct' | 'wrong' | null
+  /** 'timeout' = sampah terlewat karena kehabisan waktu (mode chaos/boss) */
+  lastAnswer: 'correct' | 'wrong' | 'timeout' | null
+
+  // ---- Level 6-7 ----
+  /** Pratinjau sampah berikutnya di antrean (mode chaos/boss) */
+  upcoming: TrashItem[]
+  /** Sampah aktif adalah item langka ✨ Golden Bottle */
+  isRareTrash: boolean
+  /** Sisa waktu untuk sampah aktif, dalam milidetik */
+  timeLeftMs: number
+  /** Batas waktu sampah aktif, dalam milidetik (0 = tanpa timer) */
+  timeLimitMs: number
+  activeEvent: GameEventId | null
+  eventTurnsLeft: number
+  /** Perisai combo dari event "Warga Membantu" — menahan satu reset */
+  hasComboShield: boolean
+  bossPhase: BossPhase | null
+  bossHp: number
+  /** Sisa sampah yang harus dilalui pada fase Garbage Storm */
+  stormRemaining: number
+  /** Jawaban terakhir masuk di detik-detik terakhir (CLUTCH) */
+  lastClutch: boolean
+  /** Damage yang baru diberikan ke boss, untuk animasi */
+  lastDamage: number
+  /** Jumlah sampah yang terlewat karena kehabisan waktu */
+  timeoutCount: number
+  /** Total waktu bermain, untuk perhitungan peringkat akhir */
+  elapsedMs: number
+}
+
+export type RankGrade = 'S' | 'A' | 'B' | 'C'
+
+export interface RankResult {
+  grade: RankGrade
+  title: string
+  stars: number
+  breakdown: {
+    label: string
+    value: string
+    points: number
+  }[]
+  totalPoints: number
+}
+
+export interface DecisionOption {
+  id: string
+  label: string
+  text: string
+  isBest: boolean
+  explanation: string
 }
 
 export interface CategoryInfo {
@@ -41,6 +109,11 @@ export interface LevelConfig {
   level: number
   name: string
   categories: TrashCategory[]
+  mode: LevelMode
+  /** Batas waktu per sampah dalam ms (0 = tanpa timer) */
+  timeLimitMs: number
+  /** Jumlah pratinjau sampah berikutnya yang ditampilkan */
+  queuePreview: number
 }
 
 export interface Badge {
@@ -104,6 +177,10 @@ export interface Profile {
   badges: string[]
   categoryStats: Record<TrashCategory, CategoryStat>
   isMuted: boolean
+  /** Kemampuan/mode yang terbuka, mis. speed-sorting, new-game-plus */
+  unlocks: string[]
+  /** Peringkat akhir terbaik yang pernah diraih di Level 7 */
+  bestRank: RankGrade | null
 }
 
 export interface LeaderboardEntry {

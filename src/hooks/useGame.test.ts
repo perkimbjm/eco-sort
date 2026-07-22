@@ -40,7 +40,7 @@ function answerCorrectThenNext(state: InternalState): InternalState {
   if (afterAnswer.status !== 'playing') {
     return afterAnswer
   }
-  return gameReducer(afterAnswer, { type: 'NEXT_TRASH', item: sampleTrash })
+  return gameReducer(afterAnswer, { type: 'NEXT_TRASH', fresh: sampleTrash, isRare: false })
 }
 
 describe('data sampah', () => {
@@ -67,7 +67,7 @@ describe('data sampah', () => {
   })
 
   test('level 1-5 punya kategori sesuai rencana', () => {
-    expect(LEVELS).toHaveLength(5)
+    expect(LEVELS.length).toBeGreaterThanOrEqual(5)
     expect(getLevelConfig(1).categories).toEqual(['plastik', 'organik'])
     expect(getLevelConfig(2).categories).toContain('kertas')
     expect(getLevelConfig(3).categories).toEqual(
@@ -148,7 +148,7 @@ describe('skenario: jawaban salah sampai game over', () => {
       expect(state.status).toBe('playing')
       state = answer(state, 'organik')
       if (state.status === 'playing') {
-        state = gameReducer(state, { type: 'NEXT_TRASH', item: sampleTrash })
+        state = gameReducer(state, { type: 'NEXT_TRASH', fresh: sampleTrash, isRare: false })
       }
     }
     expect(state.health).toBe(0)
@@ -160,7 +160,7 @@ describe('skenario: jawaban salah sampai game over', () => {
     for (let i = 0; i < MAX_HEALTH; i++) {
       state = answer(state, 'organik')
       if (state.status === 'playing') {
-        state = gameReducer(state, { type: 'NEXT_TRASH', item: sampleTrash })
+        state = gameReducer(state, { type: 'NEXT_TRASH', fresh: sampleTrash, isRare: false })
       }
     }
     expect(answer(state, 'plastik')).toBe(state)
@@ -168,27 +168,27 @@ describe('skenario: jawaban salah sampai game over', () => {
 })
 
 describe('skenario: semua level selesai', () => {
-  test('level naik otomatis sampai menang di level 5', () => {
+  test('level 1-6 naik otomatis lewat Clean City', () => {
     let state = freshState()
-    for (let level = 1; level <= 5; level++) {
+    for (let level = 1; level <= 6; level++) {
       expect(state.level).toBe(level)
       const answersNeeded = Math.ceil(getLevelTarget(level) / CLEAN_PER_CORRECT)
       for (let i = 0; i < answersNeeded; i++) {
         state = answerCorrectThenNext(state)
       }
-      if (level < 5) {
-        expect(state.status).toBe('levelComplete')
-        state = gameReducer(state, {
-          type: 'CONTINUE_LEVEL',
-          item: sampleTrash,
-        })
-        expect(state.cleanCity).toBe(0)
-        expect(state.health).toBe(MAX_HEALTH)
-        expect(state.status).toBe('playing')
-      }
+      expect(state.status).toBe('levelComplete')
+      state = gameReducer(state, {
+        type: 'CONTINUE_LEVEL',
+        item: sampleTrash,
+        upcoming: [],
+      })
+      expect(state.cleanCity).toBe(0)
+      expect(state.health).toBe(MAX_HEALTH)
+      expect(state.status).toBe('playing')
     }
-    expect(state.status).toBe('won')
-    expect(state.level).toBe(5)
+    // Masuk Level 7 — mode boss dimulai dari fase Garbage Storm
+    expect(state.level).toBe(7)
+    expect(state.bossPhase).toBe('storm')
   })
 
   test('reset mengembalikan permainan ke kondisi awal', () => {

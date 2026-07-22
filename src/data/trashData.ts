@@ -278,31 +278,71 @@ export const TRASH_ITEMS: TrashItem[] = [
   },
 ]
 
+const ALL_CATEGORIES: TrashCategory[] = [
+  'plastik',
+  'organik',
+  'kertas',
+  'residu',
+  'logam',
+  'b3',
+]
+
 export const LEVELS: LevelConfig[] = [
   {
     level: 1,
     name: 'Taman Kota',
     categories: ['plastik', 'organik'],
+    mode: 'classic',
+    timeLimitMs: 0,
+    queuePreview: 0,
   },
   {
     level: 2,
     name: 'Sekolah Hijau',
     categories: ['plastik', 'organik', 'kertas'],
+    mode: 'classic',
+    timeLimitMs: 0,
+    queuePreview: 0,
   },
   {
     level: 3,
     name: 'Pasar Rakyat',
     categories: ['plastik', 'organik', 'kertas', 'residu', 'logam'],
+    mode: 'classic',
+    timeLimitMs: 0,
+    queuePreview: 0,
   },
   {
     level: 4,
     name: 'Rumah Sakit',
-    categories: ['plastik', 'organik', 'kertas', 'residu', 'logam', 'b3'],
+    categories: ALL_CATEGORIES,
+    mode: 'classic',
+    timeLimitMs: 0,
+    queuePreview: 0,
   },
   {
     level: 5,
     name: 'Kota Metropolitan',
-    categories: ['plastik', 'organik', 'kertas', 'residu', 'logam', 'b3'],
+    categories: ALL_CATEGORIES,
+    mode: 'classic',
+    timeLimitMs: 0,
+    queuePreview: 0,
+  },
+  {
+    level: 6,
+    name: 'Chaos City',
+    categories: ALL_CATEGORIES,
+    mode: 'chaos',
+    timeLimitMs: 6000,
+    queuePreview: 2,
+  },
+  {
+    level: 7,
+    name: 'Final Guardian',
+    categories: ALL_CATEGORIES,
+    mode: 'boss',
+    timeLimitMs: 4500,
+    queuePreview: 3,
   },
 ]
 
@@ -326,7 +366,21 @@ export const BADGES: Badge[] = [
     name: 'Pahlawan Lingkungan Peduli Sampah',
     emoji: '🏆',
     unlockLevel: 5,
-    description: 'Menamatkan semua level Eco Sort Battle!',
+    description: 'Menuntaskan Level 5 - Kota Metropolitan',
+  },
+  {
+    id: 'city-savior',
+    name: 'City Savior',
+    emoji: '🏆',
+    unlockLevel: 6,
+    description: 'Menaklukkan Chaos City saat kota krisis sampah',
+  },
+  {
+    id: 'eco-legend',
+    name: 'Eco Legend',
+    emoji: '👑',
+    unlockLevel: 7,
+    description: 'Mengalahkan Raja Sampah dan menyelamatkan Eco World',
   },
 ]
 

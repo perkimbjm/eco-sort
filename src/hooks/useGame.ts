@@ -1,6 +1,11 @@
-import { useCallback, useEffect, useReducer } from 'react'
-import type { GameState, TrashCategory, TrashItem } from '../types/game'
-import { getLevelConfig, getTrashByCategories, LEVELS, BADGES } from '../data/trashData'
+import { useCallback, useEffect, useReducer, useRef } from 'react'
+import type { GameEventId, TrashCategory, TrashItem } from '../types/game'
+import {
+  getLevelConfig,
+  getTrashByCategories,
+  BADGES,
+} from '../data/trashData'
+import { GAME_EVENTS } from '../data/endgame'
 import {
   loadBadges,
   saveBadges,
@@ -8,38 +13,42 @@ import {
   saveHighScore,
 } from '../utils/storage'
 import { SESSION_STORAGE_KEY } from '../utils/profile'
+import {
+  createInitialState,
+  gameReducer,
+  getLevelTarget,
+  EVENT_INTERVAL,
+  RARE_CHANCE,
+  type InternalState,
+} from './gameReducer'
 
-export const MAX_HEALTH = 3
-export const SCORE_CORRECT = 100
-export const SCORE_WRONG_PENALTY = 20
-export const CLEAN_PER_CORRECT = 5
+// Diekspor ulang agar komponen & test lama tetap mengimpor dari sini
+export {
+  MAX_HEALTH,
+  SCORE_CORRECT,
+  SCORE_WRONG_PENALTY,
+  CLEAN_PER_CORRECT,
+  FEVER_COMBO,
+  FEVER_MULTIPLIER,
+  CLUTCH_BONUS,
+  RARE_BONUS,
+  BOSS_MAX_HP,
+  STORM_LENGTH,
+  getLevelTarget,
+  getComboBonus,
+  getBossDamage,
+  isFeverActive,
+  createInitialState,
+  gameReducer,
+  type InternalState,
+  type GameAction,
+} from './gameReducer'
+
 const CORRECT_NEXT_DELAY_MS = 700
-// Jeda lebih lama saat salah agar pemain sempat membaca edukasinya
+// Jeda lebih lama saat salah/terlewat agar pemain sempat membaca edukasinya
 const WRONG_NEXT_DELAY_MS = 2000
-
-export function getLevelTarget(level: number): number {
-  return 30 + level * 10
-}
-
-// Bonus combo: 3 → kecil, 5 → besar, 10 → jackpot, kelipatan 5 berikutnya tetap dihargai
-export function getComboBonus(combo: number): number {
-  if (combo === 3) return 100
-  if (combo === 5) return 500
-  if (combo === 10) return 1000
-  if (combo > 10 && combo % 5 === 0) return 500
-  return 0
-}
-
-export interface InternalState extends GameState {
-  trashKey: number
-  lastBonus: number
-}
-
-export type GameAction =
-  | { type: 'ANSWER'; category: TrashCategory }
-  | { type: 'NEXT_TRASH'; item: TrashItem }
-  | { type: 'CONTINUE_LEVEL'; item: TrashItem }
-  | { type: 'RESET'; item: TrashItem }
+const TIMEOUT_NEXT_DELAY_MS = 1600
+const TICK_MS = 100
 
 export function pickRandomTrash(level: number, excludeId?: string): TrashItem {
   const pool = getTrashByCategories(getLevelConfig(level).categories)
@@ -48,104 +57,29 @@ export function pickRandomTrash(level: number, excludeId?: string): TrashItem {
   return candidates[Math.floor(Math.random() * candidates.length)]
 }
 
-export function createInitialState(item: TrashItem): InternalState {
-  return {
-    score: 0,
-    level: 1,
-    health: MAX_HEALTH,
-    combo: 0,
-    cleanCity: 0,
-    currentTrash: item,
-    status: 'playing',
-    bestCombo: 0,
-    correctCount: 0,
-    wrongCount: 0,
-    lastAnswer: null,
-    trashKey: 0,
-    lastBonus: 0,
-  }
+/** Menyiapkan sampah aktif beserta antrean pratinjau sesuai mode level */
+export function buildLevelQueue(level: number): {
+  item: TrashItem
+  upcoming: TrashItem[]
+} {
+  const config = getLevelConfig(level)
+  const item = pickRandomTrash(level)
+  const upcoming = Array.from({ length: config.queuePreview }, () =>
+    pickRandomTrash(level),
+  )
+  return { item, upcoming }
 }
 
-function answerReducer(
-  state: InternalState,
-  category: TrashCategory,
-): InternalState {
-  if (state.status !== 'playing' || !state.currentTrash || state.lastAnswer) {
-    return state
-  }
-
-  const isCorrect = state.currentTrash.category === category
-
-  if (isCorrect) {
-    const combo = state.combo + 1
-    const bonus = getComboBonus(combo)
-    const cleanCity = state.cleanCity + CLEAN_PER_CORRECT
-    const isLevelDone = cleanCity >= getLevelTarget(state.level)
-    const isLastLevel = state.level >= LEVELS.length
-
-    return {
-      ...state,
-      score: state.score + SCORE_CORRECT + bonus,
-      combo,
-      bestCombo: Math.max(state.bestCombo, combo),
-      cleanCity,
-      correctCount: state.correctCount + 1,
-      lastAnswer: 'correct',
-      lastBonus: bonus,
-      status: isLevelDone ? (isLastLevel ? 'won' : 'levelComplete') : 'playing',
-    }
-  }
-
-  const health = state.health - 1
-
-  return {
-    ...state,
-    score: Math.max(0, state.score - SCORE_WRONG_PENALTY),
-    health,
-    combo: 0,
-    wrongCount: state.wrongCount + 1,
-    lastAnswer: 'wrong',
-    lastBonus: 0,
-    status: health <= 0 ? 'gameOver' : 'playing',
-  }
+function rollRareTrash(level: number): boolean {
+  // Item langka hanya muncul di level endgame agar terasa istimewa
+  return getLevelConfig(level).mode !== 'classic' && Math.random() < RARE_CHANCE
 }
 
-export function gameReducer(
-  state: InternalState,
-  action: GameAction,
-): InternalState {
-  switch (action.type) {
-    case 'ANSWER':
-      return answerReducer(state, action.category)
-    case 'NEXT_TRASH':
-      return {
-        ...state,
-        currentTrash: action.item,
-        lastAnswer: null,
-        lastBonus: 0,
-        trashKey: state.trashKey + 1,
-      }
-    case 'CONTINUE_LEVEL':
-      return {
-        ...state,
-        level: state.level + 1,
-        health: MAX_HEALTH,
-        cleanCity: 0,
-        combo: 0,
-        currentTrash: action.item,
-        lastAnswer: null,
-        lastBonus: 0,
-        status: 'playing',
-        trashKey: state.trashKey + 1,
-      }
-    case 'RESET':
-      return createInitialState(action.item)
-    default:
-      return state
-  }
+function pickRandomEvent(): GameEventId {
+  return GAME_EVENTS[Math.floor(Math.random() * GAME_EVENTS.length)].id
 }
 
-// ---------- Simpan / lanjutkan sesi (PHASE 18) ----------
+// ---------- Simpan / lanjutkan sesi ----------
 
 export function loadSavedSession(): InternalState | null {
   try {
@@ -161,7 +95,17 @@ export function loadSavedSession(): InternalState | null {
       (parsed.status === 'playing' || parsed.status === 'levelComplete')
     ) {
       // Buang feedback yang sedang berjalan agar tidak macet setelah refresh
-      return { ...parsed, lastAnswer: null, lastBonus: 0 }
+      return {
+        ...createInitialState(parsed.currentTrash),
+        ...parsed,
+        lastAnswer: null,
+        lastBonus: 0,
+        lastGained: 0,
+        lastClutch: false,
+        lastDamage: 0,
+        // Beri waktu penuh lagi supaya tidak langsung timeout saat dibuka
+        timeLeftMs: parsed.timeLimitMs ?? 0,
+      }
     }
     return null
   } catch {
@@ -208,22 +152,20 @@ export function useGame(options?: UseGameOptions) {
     return createInitialState(pickRandomTrash(1))
   })
 
+  const levelConfig = getLevelConfig(state.level)
+
   const checkAnswer = useCallback((category: TrashCategory) => {
     dispatch({ type: 'ANSWER', category })
   }, [])
 
-  const nextTrash = useCallback(() => {
-    dispatch({
-      type: 'NEXT_TRASH',
-      item: pickRandomTrash(state.level, state.currentTrash?.id),
-    })
-  }, [state.level, state.currentTrash])
+  const decide = useCallback((isBest: boolean) => {
+    dispatch({ type: 'DECIDE', isBest })
+  }, [])
 
   const continueToNextLevel = useCallback(() => {
-    dispatch({
-      type: 'CONTINUE_LEVEL',
-      item: pickRandomTrash(state.level + 1),
-    })
+    const nextLevel = state.level + 1
+    const { item, upcoming } = buildLevelQueue(nextLevel)
+    dispatch({ type: 'CONTINUE_LEVEL', item, upcoming })
   }, [state.level])
 
   const resetGame = useCallback(() => {
@@ -231,22 +173,56 @@ export function useGame(options?: UseGameOptions) {
     dispatch({ type: 'RESET', item: pickRandomTrash(1) })
   }, [])
 
-  // Setelah jawaban dinilai, tampilkan sampah berikutnya dengan jeda animasi.
-  // Jawaban salah diberi jeda lebih lama untuk membaca edukasi.
+  // Timer mundur untuk mode chaos & boss
+  useEffect(() => {
+    if (levelConfig.timeLimitMs === 0 || state.status !== 'playing') {
+      return
+    }
+    const timer = setInterval(() => {
+      dispatch({ type: 'TICK', deltaMs: TICK_MS })
+    }, TICK_MS)
+    return () => clearInterval(timer)
+  }, [levelConfig.timeLimitMs, state.status])
+
+  // Setelah jawaban dinilai, tampilkan sampah berikutnya dengan jeda animasi
   useEffect(() => {
     if (!state.lastAnswer || state.status !== 'playing') {
       return
     }
     const delay =
-      state.lastAnswer === 'wrong' ? WRONG_NEXT_DELAY_MS : CORRECT_NEXT_DELAY_MS
+      state.lastAnswer === 'correct'
+        ? CORRECT_NEXT_DELAY_MS
+        : state.lastAnswer === 'timeout'
+          ? TIMEOUT_NEXT_DELAY_MS
+          : WRONG_NEXT_DELAY_MS
     const timer = setTimeout(() => {
       dispatch({
         type: 'NEXT_TRASH',
-        item: pickRandomTrash(state.level, state.currentTrash?.id),
+        fresh: pickRandomTrash(state.level, state.currentTrash?.id),
+        isRare: rollRareTrash(state.level),
       })
     }, delay)
     return () => clearTimeout(timer)
   }, [state.lastAnswer, state.status, state.level, state.currentTrash])
+
+  // Event acak Chaos City tiap beberapa sampah terjawab
+  const lastEventAt = useRef(0)
+  useEffect(() => {
+    if (levelConfig.mode !== 'chaos' || state.status !== 'playing') {
+      return
+    }
+    const handled = state.correctCount + state.wrongCount + state.timeoutCount
+    if (handled > 0 && handled % EVENT_INTERVAL === 0 && handled !== lastEventAt.current) {
+      lastEventAt.current = handled
+      dispatch({ type: 'SET_EVENT', event: pickRandomEvent() })
+    }
+  }, [
+    levelConfig.mode,
+    state.status,
+    state.correctCount,
+    state.wrongCount,
+    state.timeoutCount,
+  ])
 
   // Simpan sesi berjalan agar refresh tidak mereset progres
   useEffect(() => {
@@ -272,10 +248,10 @@ export function useGame(options?: UseGameOptions) {
 
   return {
     state,
-    levelConfig: getLevelConfig(state.level),
+    levelConfig,
     levelTarget: getLevelTarget(state.level),
     checkAnswer,
-    nextTrash,
+    decide,
     continueToNextLevel,
     resetGame,
   }

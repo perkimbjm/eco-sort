@@ -63,6 +63,8 @@ export function createDefaultProfile(): Profile {
     badges: loadBadges(),
     categoryStats: emptyCategoryStats(),
     isMuted: false,
+    unlocks: [],
+    bestRank: null,
   }
 }
 
@@ -157,6 +159,10 @@ export function addLeaderboardEntry(entry: LeaderboardEntry): LeaderboardEntry[]
     // Abaikan
   }
   return updated
+}
+
+export function hasUnlock(profile: Profile, unlockId: string): boolean {
+  return profile.unlocks.includes(unlockId)
 }
 
 export function exportAllData(): string {

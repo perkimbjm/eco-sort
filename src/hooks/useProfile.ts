@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { DailyMissions, LeaderboardEntry, Profile } from '../types/game'
+import type {
+  DailyMissions,
+  LeaderboardEntry,
+  Profile,
+  RankGrade,
+} from '../types/game'
+import { UNLOCK_LABELS } from '../data/endgame'
+import { isBetterRank } from '../utils/ranking'
 import {
   addLeaderboardEntry,
   loadDailyMissions,
@@ -80,6 +87,33 @@ export function useProfile() {
     [],
   )
 
+  /** Membuka kemampuan baru (Speed Sorting, New Game+) — anti duplikat */
+  const unlockAbility = useCallback(
+    (unlockId: string): ProgressToast[] => {
+      if (profileRef.current.unlocks.includes(unlockId)) {
+        return []
+      }
+      const label = UNLOCK_LABELS[unlockId]
+      setProfile((current) =>
+        current.unlocks.includes(unlockId)
+          ? current
+          : { ...current, unlocks: [...current.unlocks, unlockId] },
+      )
+      return label
+        ? [{ emoji: label.emoji, title: `Terbuka: ${label.name}!` }]
+        : []
+    },
+    [],
+  )
+
+  const recordRank = useCallback((grade: RankGrade) => {
+    setProfile((current) =>
+      isBetterRank(grade, current.bestRank)
+        ? { ...current, bestRank: grade }
+        : current,
+    )
+  }, [])
+
   const addEcoPoints = useCallback((amount: number) => {
     setProfile((current) => ({
       ...current,
@@ -107,6 +141,8 @@ export function useProfile() {
     recordLevelComplete,
     recordGameEnd,
     addEcoPoints,
+    unlockAbility,
+    recordRank,
     setPlayerName,
     toggleMuted,
   }

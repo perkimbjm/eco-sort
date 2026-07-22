@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowRight, Home, RotateCcw, Share2, Trophy } from 'lucide-react'
-import type { GameStatus } from '../types/game'
+import type { GameStatus, RankResult } from '../types/game'
 import { BADGES } from '../data/trashData'
 import { shareResult } from '../utils/share'
+import { RankResultModal } from './RankResultModal'
 
 const CONFETTI = ['🎉', '✨', '🎊', '⭐', '💚', '🌟', '🍃', '🎈', '♻️', '🌈']
 
@@ -12,6 +13,8 @@ interface LevelCompleteModalProps {
   level: number
   score: number
   bestCombo: number
+  /** Hasil peringkat akhir — hanya terisi setelah menamatkan Level 7 */
+  rankResult?: RankResult | null
   onContinue: () => void
   onRestart: () => void
   onExit: () => void
@@ -25,6 +28,7 @@ export function LevelCompleteModal({
   level,
   score,
   bestCombo,
+  rankResult,
   onContinue,
   onRestart,
   onExit,
@@ -106,16 +110,22 @@ export function LevelCompleteModal({
           {isGameOver
             ? 'Game Over!'
             : isWon
-              ? 'Kota Telah Bersih!'
+              ? rankResult
+                ? '🌎 ECO WORLD SAVED'
+                : 'Kota Telah Bersih!'
               : `Level ${level} Selesai!`}
         </h2>
         <p className="mt-1 text-sm text-slate-600">
           {isGameOver
             ? 'Kota masih butuh bantuanmu. Coba lagi ya!'
             : isWon
-              ? 'Kamu berhasil menyelamatkan kota dari sampah!'
+              ? rankResult
+                ? 'Raja Sampah tumbang. Eco World kembali hijau berkat keputusanmu!'
+                : 'Kamu berhasil menyelamatkan kota dari sampah!'
               : 'Kota semakin bersih berkat kamu!'}
         </p>
+
+        {rankResult && <RankResultModal result={rankResult} />}
 
         <div className="mt-4 flex justify-center gap-3 text-sm">
           <div className="rounded-xl bg-emerald-50 px-4 py-2">

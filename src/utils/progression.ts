@@ -25,6 +25,8 @@ export interface AnswerEvent {
   comboAfter: number
   bonus: number
   sessionScore: number
+  /** Skor yang benar-benar diperoleh, sudah termasuk pengali Eco Fever */
+  gained?: number
 }
 
 function collectMetaToasts(
@@ -138,8 +140,7 @@ export function processAnswer(
         ...profile,
         totalCorrect: profile.totalCorrect + 1,
         maxCombo: Math.max(profile.maxCombo, event.comboAfter),
-        ecoPoints:
-          profile.ecoPoints + 100 + event.bonus,
+        ecoPoints: profile.ecoPoints + (event.gained ?? 100 + event.bonus),
         xp:
           profile.xp +
           XP_PER_CORRECT +
