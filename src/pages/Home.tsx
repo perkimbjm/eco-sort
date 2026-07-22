@@ -8,6 +8,8 @@ import {
   RotateCcw,
   Trash2,
   Trophy,
+  Volume2,
+  VolumeX,
   X,
 } from 'lucide-react'
 import { CATEGORIES } from '../data/trashData'
@@ -15,6 +17,7 @@ import { loadBadges, loadHighScore } from '../utils/storage'
 import { resetAllData } from '../utils/profile'
 import { clearSavedSession, hasSavedSession } from '../hooks/useGame'
 import { useProfile } from '../hooks/useProfile'
+import { useBackgroundMusic } from '../hooks/useBackgroundMusic'
 import { ProfileCard } from '../components/ProfileCard'
 import { MissionPanel } from '../components/MissionPanel'
 import { AchievementsPanel } from '../components/AchievementsPanel'
@@ -40,8 +43,11 @@ const menuButton =
 export function Home({ onStart }: HomeProps) {
   const [activeModal, setActiveModal] = useState<HomeModal>(null)
   const [canResume, setCanResume] = useState(hasSavedSession)
-  const { profile, dailyMissions, leaderboard, setPlayerName } = useProfile()
+  const { profile, dailyMissions, leaderboard, setPlayerName, toggleMuted } =
+    useProfile()
   const highScore = loadHighScore()
+
+  useBackgroundMusic('menu', profile.isMuted)
 
   const handleReset = () => {
     if (
@@ -56,6 +62,19 @@ export function Home({ onStart }: HomeProps) {
 
   return (
     <div className="city-bg flex min-h-dvh items-center justify-center p-4" data-stage="2">
+      <button
+        type="button"
+        onClick={toggleMuted}
+        className="absolute right-4 top-4 z-10 rounded-xl bg-white/90 p-2 text-emerald-800 shadow transition hover:bg-white focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300"
+        aria-label={profile.isMuted ? 'Nyalakan suara' : 'Matikan suara'}
+      >
+        {profile.isMuted ? (
+          <VolumeX className="h-5 w-5" aria-hidden="true" />
+        ) : (
+          <Volume2 className="h-5 w-5" aria-hidden="true" />
+        )}
+      </button>
+
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}

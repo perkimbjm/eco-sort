@@ -5,6 +5,8 @@ import { useProfile } from '../hooks/useProfile'
 import { CATEGORIES, getCategoryInfo } from '../data/trashData'
 import { getCityStage } from '../data/cityStages'
 import { playSound } from '../utils/sound'
+import { selectMusicTrack } from '../utils/music'
+import { useBackgroundMusic } from '../hooks/useBackgroundMusic'
 import { getUnlockedItems } from '../utils/profile'
 import { GameHeader } from '../components/GameHeader'
 import { ScoreBoard } from '../components/ScoreBoard'
@@ -51,6 +53,13 @@ export function Game({ shouldResume, onExit }: GameProps) {
   const isMuted = profile.isMuted
   const unlockedItems = getUnlockedItems(profile.xp)
 
+  // Backsound: victory saat menang, senyap saat kalah, combo saat sedang
+  // beruntun, high-level mulai level 4, selebihnya gameplay biasa.
+  useBackgroundMusic(
+    selectMusicTrack(state.status, state.combo, state.level),
+    isMuted,
+  )
+
   // ----- proses event gameplay ke sistem progression (sekali per jawaban) -----
   const processedAnswers = useRef(state.correctCount + state.wrongCount)
   useEffect(() => {
@@ -86,7 +95,10 @@ export function Game({ shouldResume, onExit }: GameProps) {
       return
     }
     if (state.status === 'levelComplete' || state.status === 'won') {
-      playSound('levelUp', isMuted)
+      // Saat menang, jingle victory.mp3 yang mengambil alih — tanpa beep level up
+      if (state.status === 'levelComplete') {
+        playSound('levelUp', isMuted)
+      }
       pushToasts(recordLevelComplete())
     } else if (state.status === 'gameOver') {
       playSound('gameOver', isMuted)

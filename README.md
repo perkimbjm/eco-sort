@@ -31,6 +31,9 @@ Sampah muncul satu per satu. Pilih tong yang tepat:
 - **Misi harian**: 1–2 misi acak-harian, hadiah 1000 Eco Point per misi
 - **Daily streak**: hitungan hari bermain berturut-turut
 - **Save & resume**: permainan berjalan otomatis tersimpan, bisa dilanjutkan
+- **Backsound**: 5 track dengan crossfade — menu, gameplay (Lv 1–3), high-level (Lv 4–5),
+  combo (saat combo ≥ 5), dan jingle victory saat menang. Bisa dimatikan lewat tombol
+  suara di beranda maupun dalam permainan
 - **Kompetisi**: leaderboard lokal + tombol Bagikan Hasil (Web Share / clipboard)
 - **Statistik**: akurasi per kategori + export data JSON (siap untuk dashboard peduli-sampah.id)
 
@@ -61,7 +64,12 @@ src/
 │                 # LeaderboardPanel, StatsPanel
 ├── pages/        # Home, Game
 ├── data/         # trashData, achievements, cityStages, missions
-├── hooks/        # useGame (engine), useProfile (progression), useToasts + test
+├── hooks/        # useGame (engine), useProfile (progression),
+│                 # useBackgroundMusic, useToasts + test
 ├── types/        # game.ts (semua interface)
-└── utils/        # storage, sound, profile, progression, share + test
+└── utils/        # storage, sound (SFX), music (backsound), profile,
+                  # progression, share + test
 ```
+
+Berkas musik berada di `public/sound/` (`main-menu`, `main-gameplay`, `high-level`,
+`combo`, `victory`).
