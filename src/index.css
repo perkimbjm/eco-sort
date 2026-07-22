@@ -1,0 +1,47 @@
+@import 'tailwindcss';
+
+:root {
+  font-family:
+    'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background-color: #d1fae5;
+}
+
+/* Latar kota hijau: langit, perbukitan, dan siluet gedung */
+.city-bg {
+  background:
+    linear-gradient(
+      to bottom,
+      #bae6fd 0%,
+      #d1fae5 45%,
+      #a7f3d0 70%,
+      #6ee7b7 100%
+    );
+  position: relative;
+  overflow: hidden;
+}
+
+.city-bg::before {
+  content: '🏙️🌳🏢🌲🏠🌳🏬🌲🏘️🌳';
+  position: fixed;
+  bottom: -10px;
+  left: 0;
+  right: 0;
+  font-size: 52px;
+  letter-spacing: -8px;
+  white-space: nowrap;
+  text-align: center;
+  opacity: 0.18;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.city-bg > * {
+  position: relative;
+  z-index: 1;
+}
