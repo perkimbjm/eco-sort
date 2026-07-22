@@ -248,7 +248,7 @@ export function Game({ shouldResume, onExit }: GameProps) {
       <ToastStack toasts={toasts} />
       <AnimatePresence>
         {isFever && state.status === 'playing' && (
-          <FeverOverlay combo={state.combo} />
+          <FeverOverlay key="fever" combo={state.combo} />
         )}
       </AnimatePresence>
 

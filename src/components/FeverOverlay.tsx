@@ -4,24 +4,26 @@ interface FeverOverlayProps {
   combo: number
 }
 
-// Lapisan visual Eco Fever — nyala membara di tepi layar saat POINT x2 aktif
+// Lapisan visual Eco Fever — nyala membara di tepi layar saat POINT x2 aktif.
+// PENTING: komponen ini harus mengembalikan SATU elemen akar. AnimatePresence
+// tidak bisa melacak siklus keluar dari Fragment, sehingga overlay akan
+// tersangkut di DOM setelah fever berakhir.
 export function FeverOverlay({ combo }: FeverOverlayProps) {
   return (
-    <>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
+      className="pointer-events-none fixed inset-0 z-30"
+      aria-hidden="true"
+    >
       <motion.div
-        initial={{ opacity: 0 }}
         animate={{ opacity: [0.35, 0.6, 0.35] }}
-        exit={{ opacity: 0 }}
         transition={{ repeat: Infinity, duration: 1.2 }}
-        className="pointer-events-none fixed inset-0 z-20 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(249,115,22,0.55)_100%)]"
-        aria-hidden="true"
+        className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(249,115,22,0.55)_100%)]"
       />
-      <motion.div
-        initial={{ opacity: 0, y: -18, scale: 0.8 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.8 }}
-        className="pointer-events-none fixed inset-x-0 top-16 z-30 flex justify-center"
-      >
+      <div className="absolute inset-x-0 top-16 flex justify-center">
         <motion.div
           animate={{ scale: [1, 1.08, 1] }}
           transition={{ repeat: Infinity, duration: 0.7 }}
@@ -31,7 +33,7 @@ export function FeverOverlay({ combo }: FeverOverlayProps) {
             🔥 ECO FEVER! POINT x2 · combo {combo}
           </span>
         </motion.div>
-      </motion.div>
-    </>
+      </div>
+    </motion.div>
   )
 }

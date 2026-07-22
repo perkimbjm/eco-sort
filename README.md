@@ -18,8 +18,34 @@ Sampah muncul satu per satu. Pilih tong yang tepat:
 
 - Benar: **+100 skor**, combo naik, kota makin bersih (+5)
 - Salah: **-20 skor**, kehilangan 1 nyawa, combo reset
-- Penuhi bar **Clean City** untuk naik level — ada 5 level
+- Penuhi bar **Clean City** untuk naik level — ada **7 level**
 - Badge: 🌱 Pemilah Pemula (Lv 1), 🛡️ Eco Warrior (Lv 3), 🏆 Pahlawan Lingkungan (Lv 5)
+
+## Level Endgame (6–7)
+
+Dua level pamungkas dengan tensi tinggi:
+
+**Level 6 · Chaos City** — kota krisis setelah badai sampah.
+- Antrean sampah: 3 tampil sekaligus, sampah aktif + 2 pratinjau
+- **Timer 6 detik** per sampah. Terlambat → `⚠️ Sampah menumpuk!` Clean City −5%
+- **Event acak**: 🌧️ Hujan Deras (waktu −35%), 🚛 Truk Sampah (waktu +50%),
+  🤝 Warga Membantu (perisai combo, satu kesalahan tidak mereset)
+- Hadiah: 🏆 badge City Savior + ⚡ Speed Sorting Ability
+
+**Level 7 · Final Guardian** — pertarungan pamungkas melawan Raja Sampah.
+- Timer 4,5 detik — paling menekan
+- **Fase 1 Garbage Storm**: bertahan dari 8 sampah beruntun
+- **Fase 2 Boss Battle**: 👑 Raja Sampah HP 100. Jawaban benar = damage,
+  meningkat seiring combo dan berlipat saat Eco Fever. Terlambat → boss pulih
+- **Fase 3 Ultimate Decision**: pilih strategi lingkungan (jawaban terbaik: daur ulang),
+  lengkap dengan penjelasan edukatif untuk setiap pilihan
+- Hadiah: 👑 badge Eco Legend + 🌟 New Game+ / Eco Master Mode
+
+**Unsur dopamin tambahan:**
+- 🔥 **Eco Fever** — combo 10+ menyalakan mode POINT ×2 dengan overlay membara
+- ⚡ **CLUTCH** — jawaban benar di sisa waktu ≤15% memberi +500
+- ✨ **Rare Trash** — Golden Bottle muncul sesekali, +1000 poin
+- 🏅 **Final Ranking** — peringkat S/A/B/C dari skor, combo, akurasi, dan ketepatan waktu
 
 ## Fitur Engagement (Post-MVP)
 
@@ -61,15 +87,21 @@ src/
 ├── components/   # TrashCard, CategoryButton, ScoreBoard, HealthBar, CityProgress,
 │                 # GameHeader, LevelCompleteModal, FloatingReward, Toasts,
 │                 # ProfileCard, MissionPanel, AchievementsPanel,
-│                 # LeaderboardPanel, StatsPanel
+│                 # LeaderboardPanel, StatsPanel,
+│                 # TimerBar, TrashQueue, BossPanel, EventBanner,
+│                 # FeverOverlay, DecisionPanel, RankResultModal
 ├── pages/        # Home, Game
-├── data/         # trashData, achievements, cityStages, missions
-├── hooks/        # useGame (engine), useProfile (progression),
-│                 # useBackgroundMusic, useToasts + test
+├── data/         # trashData, achievements, cityStages, missions, endgame
+├── hooks/        # gameReducer (logika murni), useGame (efek & timer),
+│                 # useProfile, useBackgroundMusic, useToasts + test
 ├── types/        # game.ts (semua interface)
 └── utils/        # storage, sound (SFX), music (backsound), profile,
-                  # progression, share + test
+                  # progression, ranking, share + test
 ```
+
+Logika permainan sengaja dipisah: [gameReducer.ts](src/hooks/gameReducer.ts) berisi
+reducer murni (mudah diuji, 30+ test), sedangkan [useGame.ts](src/hooks/useGame.ts)
+menangani efek samping — timer, spawn antrean, event acak, dan penyimpanan sesi.
 
 Berkas musik berada di `public/sound/` (`main-menu`, `main-gameplay`, `high-level`,
 `combo`, `victory`).
